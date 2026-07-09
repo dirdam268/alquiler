@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Alquiler</title>
+<meta name="description" content="Compara la renta de un local comercial con el mercado y calcula la tasa de esfuerzo."/>
+<meta name="theme-color" content="#10161c"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<link rel="icon" type="image/png" href="icon-192.png"/>
+<link rel="apple-touch-icon" href="icon-180.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Alquiler"/>
+<!-- INJECT:CSS -->
+</head>
+<body>
+<div class="wrap">
+<header>
+  <p class="eyebrow">Alquiler · local comercial · €/m²/mes · tasa de esfuerzo</p>
+  <h1>¿Está bien ese alquiler?</h1>
+  <p class="sub">Ubicación, calle, metros y renta: comparo con el mercado del distrito. Si añades la cifra de ventas, calculo la tasa de esfuerzo (Óptimo / Viable / Riesgo) con tu metodología.</p>
+</header>
+
+<!-- Fila 1: Ubicación + m² -->
+<div class="grid">
+  <div class="card autobox">
+    <label for="loc">Ubicación (municipio o distrito)</label>
+    <input id="loc" autocomplete="off" placeholder="Ej. Centro, Leganés, Boadilla del Monte..."/>
+    <div class="sugg" id="sugg"></div>
+    <div class="ok-pill" id="okpill"></div>
+  </div>
+  <div class="card">
+    <label for="m2">Superficie del local (m²)</label>
+    <input id="m2" type="text" inputmode="decimal" placeholder="Ej. 450"/>
+    <div class="unit">Rangos: 300–600 · 1.000–1.400 · 1.400–1.800 · 1.800–2.200 m²</div>
+  </div>
+</div>
+
+<!-- Fila 2: Calle + eje comercial -->
+<div class="grid">
+  <div class="card">
+    <label for="calle">Calle (opcional)</label>
+    <input id="calle" autocomplete="off" placeholder="Ej. Montera, Preciados, Serrano..."/>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div class="card">
+    <label for="eje">Tipo de eje comercial</label>
+    <select id="eje">
+      <option value="1.0">Calle comercial media (referencia del distrito) · ×1,0</option>
+      <option value="2.2">Eje prime / primera línea, máximo tránsito · ×2,2</option>
+      <option value="1.4">Calle comercial principal · ×1,4</option>
+      <option value="0.65">Calle secundaria / poco tránsito · ×0,65</option>
+    </select>
+    <div class="coefnote">Ajusta el precio del distrito según la calidad de la calle.</div>
+  </div>
+</div>
+
+<!-- Fila 3: Renta + Ventas -->
+<div class="grid">
+  <div class="card">
+    <label>Renta que te piden</label>
+    <div class="seg" style="margin-bottom:11px">
+      <button id="mTotal" class="on" type="button">Total al mes (€)</button>
+      <button id="mUnit" type="button">Por m² al mes (€/m²)</button>
+    </div>
+    <input id="rent" type="text" inputmode="decimal" placeholder="Ej. 3.500"/>
+  </div>
+  <div class="card">
+    <label for="ventas">Cifra de ventas anual del establecimiento (opcional)</label>
+    <input id="ventas" type="text" inputmode="decimal" placeholder="Ej. 1.500.000"/>
+    <div class="row2">
+      <div class="seg sm">
+        <button id="ivaSi" class="on" type="button">Con IVA</button>
+        <button id="ivaNo" type="button">Sin IVA (neta)</button>
+      </div>
+      <div class="seg sm">
+        <button id="domNo" class="on" type="button">Cerrado domingos</button>
+        <button id="domSi" type="button">Abre domingos</button>
+      </div>
+    </div>
+    <div class="coefnote">Para calcular la tasa de esfuerzo (renta vs ventas).</div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="card" style="margin-top:14px">
+  <div class="actions">
+    <button class="cta" id="go">Comprobar precio</button>
+    <button class="clear" id="clear" type="button">Limpiar</button>
+  </div>
+  <div class="err" id="err"></div>
+</div>
+
+<!-- Resultado -->
+<div id="result"></div>
+<p class="foot" id="src"><!-- INJECT:FOOTER --></p>
+</div>
+
+<!-- INJECT:DATA -->
+<!-- INJECT:JS -->
+<script>
+if ("serviceWorker" in navigator &&
+    (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
+  addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+}
+</script>
+</body>
+</html>
