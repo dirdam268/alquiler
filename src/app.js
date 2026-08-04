@@ -15,33 +15,38 @@ const DIAS_NODOM= 308;    // días de venta/año sin domingos
 const TE_RIESGO = 0.80;   // umbral superior tasa de esfuerzo
 const TE_OPTIMO = 0.50;   // umbral inferior tasa de esfuerzo
 
-// ── Calles prime conocidas → [coeficiente, descripción] ──────────────────────
-const STREETS = {
-  "montera":              ["2.2", "eje prime de Centro, Madrid"],
-  "preciados":            ["2.2", "eje prime de Centro, Madrid"],
-  "gran via":             ["2.2", "eje prime, Madrid"],
-  "carmen":               ["1.4", "calle comercial de Centro"],
-  "fuencarral":           ["1.4", "calle comercial principal, Madrid"],
-  "serrano":              ["2.2", "eje prime de Salamanca, Madrid"],
-  "jose ortega y gasset": ["2.2", "eje prime de Salamanca (lujo)"],
-  "ortega y gasset":      ["2.2", "eje prime de Salamanca (lujo)"],
-  "goya":                 ["1.4", "calle comercial principal, Salamanca"],
-  "principe de vergara":  ["1.4", "calle comercial, Salamanca"],
-  "velazquez":            ["1.4", "calle comercial, Salamanca"],
-  "bravo murillo":        ["1.0", "calle media, Tetuán"],
-  "alcala":               ["1.4", "eje principal, Madrid"],
-  "portal de l angel":    ["2.2", "eje prime de Ciutat Vella, Barcelona"],
-  "portal del angel":     ["2.2", "eje prime de Ciutat Vella, Barcelona"],
-  "passeig de gracia":    ["2.2", "eje prime de Eixample, Barcelona (lujo)"],
-  "paseo de gracia":      ["2.2", "eje prime de Eixample, Barcelona (lujo)"],
-  "rambla catalunya":     ["1.4", "calle comercial principal, Eixample"],
-  "portaferrissa":        ["2.2", "eje prime de Ciutat Vella, Barcelona"],
-  "pelai":                ["2.2", "eje prime, Barcelona"],
-  "pelayo":               ["2.2", "eje prime, Barcelona"],
-  "diagonal":             ["1.4", "eje principal, Barcelona"],
-  "la rambla":            ["2.2", "eje prime turístico, Barcelona"],
-  "ramblas":              ["2.2", "eje prime turístico, Barcelona"],
-};
+// ── Calles prime conocidas: nombre, coeficiente, descripción ─────────────────
+// Cobertura limitada y manual (sin fuente de precios por calle real).
+// El coeficiente es orientativo: sirve para ajustar el precio del distrito,
+// no es un dato medido calle a calle.
+const STREETS = [
+  { name: "Montera",                coef: "2.2", desc: "eje prime de Centro, Madrid" },
+  { name: "Preciados",              coef: "2.2", desc: "eje prime de Centro, Madrid" },
+  { name: "Gran Vía",               coef: "2.2", desc: "eje prime, Madrid" },
+  { name: "Carmen",                 coef: "1.4", desc: "calle comercial de Centro" },
+  { name: "Fuencarral",             coef: "1.4", desc: "calle comercial principal, Madrid" },
+  { name: "Serrano",                coef: "2.2", desc: "eje prime de Salamanca, Madrid" },
+  { name: "José Ortega y Gasset",   coef: "2.2", desc: "eje prime de Salamanca (lujo)" },
+  { name: "Goya",                   coef: "1.4", desc: "calle comercial principal, Salamanca" },
+  { name: "Príncipe de Vergara",    coef: "1.4", desc: "calle comercial, Salamanca" },
+  { name: "Velázquez",              coef: "1.4", desc: "calle comercial, Salamanca" },
+  { name: "Bravo Murillo",          coef: "1.0", desc: "calle media, Tetuán" },
+  { name: "Alcalá",                 coef: "1.4", desc: "eje principal, Madrid" },
+  { name: "Portal de l'Àngel",      coef: "2.2", desc: "eje prime de Ciutat Vella, Barcelona" },
+  { name: "Passeig de Gràcia",      coef: "2.2", desc: "eje prime de Eixample, Barcelona (lujo)" },
+  { name: "Rambla de Catalunya",    coef: "1.4", desc: "calle comercial principal, Eixample" },
+  { name: "Portaferrissa",          coef: "2.2", desc: "eje prime de Ciutat Vella, Barcelona" },
+  { name: "Pelai",                  coef: "2.2", desc: "eje prime, Barcelona" },
+  { name: "Diagonal",               coef: "1.4", desc: "eje principal, Barcelona" },
+  { name: "La Rambla",              coef: "2.2", desc: "eje prime turístico, Barcelona" },
+  { name: "Colón",                  coef: "2.2", desc: "eje prime, Valencia" },
+  { name: "Sorní",                  coef: "1.4", desc: "calle comercial, Valencia" },
+  { name: "Tetuán",                 coef: "2.2", desc: "eje prime, Sevilla" },
+  { name: "Sierpes",                coef: "2.2", desc: "eje prime peatonal, Sevilla" },
+  { name: "Gran Vía",               coef: "2.2", desc: "eje prime, Bilbao" },
+  { name: "Alameda de Colón",       coef: "1.4", desc: "calle comercial, Málaga" },
+  { name: "Larios",                 coef: "2.2", desc: "eje prime peatonal, Málaga" },
+];
 
 const EJE_LABEL = {
   "2.2": "eje prime",
@@ -66,13 +71,6 @@ function norm(s) {
     .replace(/\s*-\s*a\d\s*$/i, "").trim();
 }
 
-function streetKey(s) {
-  return norm(s)
-    .replace(/[''`]/g, " ")
-    .replace(/\b(calle|c|carrer|avenida|avda|av|passeig|paseo|plaza|pza|de|del|la|las|los|el|i)\b/g, " ")
-    .replace(/\s+/g, " ").trim();
-}
-
 /** Acepta 3.500 (miles ES), 7,80 (decimal ES) y 3500 (normal) */
 function parseNum(s) {
   if (s == null) return NaN;
@@ -84,8 +82,16 @@ function parseNum(s) {
   return parseFloat(s);
 }
 
-const eur  = n => n.toLocaleString("es-ES", { maximumFractionDigits: 0 });
-const eur2 = n => n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Formatea con separador de miles "." y decimales ",", forzado a mano:
+ *  toLocaleString("es-ES") en algunos motores no agrupa números de 4 cifras (8750 en vez de 8.750). */
+function fmtEs(n, decimals) {
+  const neg = n < 0;
+  const [intPart, decPart] = Math.abs(n).toFixed(decimals).split(".");
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return (neg ? "-" : "") + grouped + (decPart ? "," + decPart : "");
+}
+const eur  = n => fmtEs(n, 0);
+const eur2 = n => fmtEs(n, 2);
 const pct1 = n => (n * 100).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
 const clean = name => name.replace(/ - A\d$/i, "");
 
@@ -126,7 +132,7 @@ function setSelected(d) {
   selected = d;
   document.getElementById("loc").value = clean(d.localizacion) + " · " + d.provincia;
   const pill = document.getElementById("okpill");
-  pill.style.color = d.hasData ? "var(--good)" : "#c9a23a";
+  pill.style.color = d.hasData ? "var(--good)" : "var(--accent-ink)";
   pill.textContent = (d.hasData ? "✓ " : "⚠ ")
     + clean(d.localizacion) + " (" + d.provincia + " · " + d.tipo + ")"
     + (d.hasData ? "" : " — sin precio en el fichero, solo Idealista");
@@ -152,6 +158,44 @@ function resolveLoc() {
   const m = searchLoc(document.getElementById("loc").value);
   if (m.length) { setSelected(m[0]); return m[0]; }
   return null;
+}
+
+// ── Autocomplete de calle ──────────────────────────────────────────────────────
+
+let selectedCalle = null, hiCalle = -1, lastListCalle = [];
+
+function searchStreet(q) {
+  const nq = norm(q);
+  if (nq.length < 2) return [];
+  return STREETS
+    .map(s => ({ s, n: norm(s.name) }))
+    .filter(x => x.n.includes(nq))
+    .sort((a, b) => (b.n === nq) - (a.n === nq) || (b.n.startsWith(nq)) - (a.n.startsWith(nq)))
+    .map(x => x.s);
+}
+
+function setSelectedCalle(s) {
+  selectedCalle = s;
+  document.getElementById("calle").value = s.name;
+  document.getElementById("eje").value = s.coef;
+  const hint = document.getElementById("hint");
+  hint.textContent = "Detectado: " + s.desc + " → " + EJE_LABEL[s.coef]
+    + " (×" + s.coef.replace(".", ",") + "). Puedes cambiarlo.";
+  hint.classList.add("show");
+  document.getElementById("suggCalle").classList.remove("open");
+}
+
+function renderSuggCalle(list) {
+  const sugg = document.getElementById("suggCalle");
+  if (!list.length) { sugg.classList.remove("open"); return; }
+  lastListCalle = list;
+  sugg.innerHTML = list.map((s, i) =>
+    `<div data-i="${i}"><b>${s.name}</b><span class="prov">${s.desc}</span>`
+    + `<span class="tp has">×${s.coef.replace(".", ",")}</span></div>`
+  ).join("");
+  sugg.classList.add("open");
+  hiCalle = -1;
+  [...sugg.children].forEach(el => el.onclick = () => setSelectedCalle(lastListCalle[+el.dataset.i]));
 }
 
 // ── HTML builders ─────────────────────────────────────────────────────────────
@@ -188,7 +232,7 @@ function esfuerzoBlock(rentMonthly) {
         <div class="et">Tasa de esfuerzo · renta mensual / venta media diaria</div>
         <div class="ebig" style="color:${col}">${pct1(te)}</div>
       </div>
-      <div class="eval" style="background:${col};color:#10161c">${val}</div>
+      <div class="eval" style="background:${col};color:var(--text)">${val}</div>
     </div>
     <div class="stats">
       <div class="stat"><div class="k">Renta anual</div><div class="v">${eur(rentAnnual)}<small> €</small></div></div>
@@ -206,9 +250,40 @@ function esfuerzoBlock(rentMonthly) {
       <span><b style="color:var(--good)">&lt;50%</b> Óptimo</span>
       <span><b style="color:var(--ok)">50–80%</b> Viable</span>
       <span><b style="color:var(--bad)">&gt;80%</b> Riesgo</span>
-      <span style="color:#5d7384">Metodología: Tabla cálculo renta locales</span>
+      <span style="color:var(--muted)">Metodología: Tabla cálculo renta locales</span>
     </div>
   </div>`;
+}
+
+// ── Calculadora: precio de venta → renta objetivo ────────────────────────────
+
+function calcYield() {
+  const out    = document.getElementById("yieldOut");
+  const precio = parseNum(document.getElementById("ventaPrecio").value);
+  const pct    = parseNum(document.getElementById("rentabPct").value);
+  if (!(precio > 0) || !(pct > 0)) { out.innerHTML = ""; return; }
+
+  const anual   = precio * (pct / 100);
+  const mensual = anual / 12;
+  const pctTxt  = pct.toLocaleString("es-ES", { maximumFractionDigits: 2 });
+
+  out.innerHTML = `
+    <div class="stats" style="margin-top:14px">
+      <div class="stat"><div class="k">Alquiler anual</div><div class="v">${eur(anual)}<small> €/año</small></div></div>
+      <div class="stat"><div class="k">Alquiler mensual</div><div class="v">${eur(mensual)}<small> €/mes</small></div></div>
+    </div>
+    <div class="note">
+      <b>Cálculo:</b> el ${pctTxt}% de ${eur(precio)} € son <b>${eur(anual)} €</b> al año (antes de impuestos y gastos)
+      → alquiler de <b>${eur(mensual)} €/mes</b> (IVA no incluido, si procede).
+    </div>
+    <button type="button" class="usebtn" id="useYieldRent">Usar esta renta (${eur(mensual)} €/mes) en el comparador ↑</button>`;
+
+  document.getElementById("useYieldRent").onclick = () => {
+    document.getElementById("mTotal").click();
+    document.getElementById("rent").value = String(Math.round(mensual));
+    document.getElementById("rent").focus();
+    document.getElementById("rent").scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 }
 
 // ── Cálculo principal ─────────────────────────────────────────────────────────
@@ -287,7 +362,7 @@ function calcular() {
     `<div class="note">La superficie de ${eur(m2)} m² queda fuera de los rangos medidos; uso el más cercano (<b>${range.label}</b>). Resultado orientativo.</div>`;
 
   result.innerHTML = `
-    <div class="verdict" style="background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);border-color:${color}">
+    <div class="verdict" style="background:linear-gradient(180deg,rgba(20,30,45,.03),transparent);border-color:${color}">
       <span class="tag"><span class="vchip" style="background:${color}"></span>${clean(sel.localizacion)}${calleTxt ? " · " + calleTxt : ""} · ${coefLbl} · ${range.label}</span>
       <h2 style="color:${color}">${v}</h2><p>${msg}</p>
       <div class="bar">
@@ -335,15 +410,19 @@ function calcular() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 function limpiar() {
-  ["loc", "m2", "calle", "rent", "ventas"].forEach(id => document.getElementById(id).value = "");
+  ["loc", "m2", "calle", "rent", "ventas", "ventaPrecio"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("eje").value = "1.0";
+  document.getElementById("rentabPct").value = "5";
   selected = null;
+  selectedCalle = null;
   document.getElementById("okpill").classList.remove("show");
   document.getElementById("hint").classList.remove("show");
   document.getElementById("err").style.display = "none";
   document.getElementById("result").style.display = "none";
   document.getElementById("result").innerHTML = "";
+  document.getElementById("yieldOut").innerHTML = "";
   document.getElementById("sugg").classList.remove("open");
+  document.getElementById("suggCalle").classList.remove("open");
   document.getElementById("mTotal").click();
   document.getElementById("ivaSi").click();
   document.getElementById("domNo").click();
@@ -369,25 +448,34 @@ document.addEventListener("DOMContentLoaded", () => {
     items.forEach((el, i) => el.classList.toggle("hi", i === hi));
   });
   locEl.addEventListener("blur", () => { setTimeout(() => { if (!selected) resolveLoc(); }, 150); });
-  document.addEventListener("click", e => { if (!e.target.closest(".autobox")) sugg.classList.remove("open"); });
 
-  // calles conocidas
-  document.getElementById("calle").addEventListener("input", () => {
-    const k = streetKey(document.getElementById("calle").value);
-    const hint = document.getElementById("hint");
-    hint.classList.remove("show");
-    if (k.length < 3) return;
-    for (const key in STREETS) {
-      if (k.includes(key)) {
-        const [coef, desc] = STREETS[key];
-        document.getElementById("eje").value = coef;
-        hint.textContent = "Detectado: " + desc + " → " + EJE_LABEL[coef]
-          + " (×" + coef.replace(".", ",") + "). Puedes cambiarlo.";
-        hint.classList.add("show");
-        return;
-      }
-    }
+  // calles conocidas (autocompletado real, igual que la ubicación)
+  const calleEl    = document.getElementById("calle");
+  const suggCalle  = document.getElementById("suggCalle");
+
+  calleEl.addEventListener("input", () => {
+    selectedCalle = null;
+    document.getElementById("hint").classList.remove("show");
+    renderSuggCalle(searchStreet(calleEl.value));
   });
+  calleEl.addEventListener("keydown", e => {
+    if (!suggCalle.classList.contains("open")) return;
+    const items = [...suggCalle.children];
+    if      (e.key === "ArrowDown") { hiCalle = Math.min(hiCalle + 1, items.length - 1); e.preventDefault(); }
+    else if (e.key === "ArrowUp")   { hiCalle = Math.max(hiCalle - 1, 0); e.preventDefault(); }
+    else if (e.key === "Enter")     { if (hiCalle >= 0) { setSelectedCalle(lastListCalle[hiCalle]); e.preventDefault(); } return; }
+    else return;
+    items.forEach((el, i) => el.classList.toggle("hi", i === hiCalle));
+  });
+
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#loc")   && !e.target.closest("#sugg"))       sugg.classList.remove("open");
+    if (!e.target.closest("#calle") && !e.target.closest("#suggCalle")) suggCalle.classList.remove("open");
+  });
+
+  // calculadora precio de venta → renta
+  document.getElementById("ventaPrecio").addEventListener("input", calcYield);
+  document.getElementById("rentabPct").addEventListener("input", calcYield);
 
   // segmented
   const seg = (a, b, onA, onB) => {

@@ -3,20 +3,24 @@
    ============================================================ */
 
 :root {
-  --ink:      #10161c;
-  --panel:    #161e26;
-  --panel2:   #1d2731;
-  --line:     #2a3742;
-  --muted:    #8aa0b0;
-  --text:     #e8eef3;
-  --soft:     #aebecb;
-  --accent:   #f4b840;
-  --accent2:  #ffd574;
+  --ink:      #eef1f6;
+  --panel:    #ffffff;
+  --panel2:   #f5f7fb;
+  --well:     #eef2f7;
+  --well2:    #e2e8f0;
+  --line:     #d8e0e9;
+  --line2:    #e6ebf1;
+  --muted:    #64707c;
+  --text:     #182028;
+  --soft:     #45525e;
+  --accent:   #f2ac2c;
+  --accent2:  #ffcf6b;
+  --accent-ink: #9c6a07;
   --idealista:#c4006b;
-  --good:     #3ec48a;
-  --ok:       #f4b840;
-  --warn:     #f08a3c;
-  --bad:      #e85a5a;
+  --good:     #1f9d5e;
+  --ok:       #d98c12;
+  --warn:     #d97706;
+  --bad:      #d6455a;
   --r:        14px;
   --mono:     "SFMono-Regular", ui-monospace, "JetBrains Mono", Menlo, monospace;
 }
@@ -26,7 +30,7 @@
 body {
   margin: 0;
   background:
-    radial-gradient(1200px 600px at 80% -10%, #1b2630 0%, transparent 60%),
+    radial-gradient(1200px 600px at 80% -10%, #dfe8f2 0%, transparent 60%),
     var(--ink);
   color: var(--text);
   font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -40,7 +44,7 @@ body {
 header { margin-bottom: 24px; }
 .eyebrow {
   font-family: var(--mono); font-size: 11px; letter-spacing: .22em;
-  text-transform: uppercase; color: var(--accent); margin: 0 0 10px;
+  text-transform: uppercase; color: var(--accent-ink); margin: 0 0 10px;
 }
 h1 {
   font-size: clamp(26px, 4vw, 38px); font-weight: 760;
@@ -63,7 +67,7 @@ label {
   text-transform: uppercase; color: var(--muted); margin: 0 0 7px; font-weight: 600;
 }
 input, select {
-  width: 100%; background: #0e151b; border: 1px solid var(--line);
+  width: 100%; background: var(--well); border: 1px solid var(--line);
   color: var(--text); padding: 12px 13px; border-radius: 10px;
   font-size: 15px; font-family: inherit; outline: none;
 }
@@ -83,28 +87,28 @@ input:focus, select:focus {
 .autobox { position: relative; }
 .sugg {
   position: absolute; z-index: 30; left: 0; right: 0;
-  top: calc(100% + 6px); background: #0e151b;
+  top: calc(100% + 6px); background: var(--panel);
   border: 1px solid var(--line); border-radius: 10px;
   max-height: 300px; overflow: auto;
-  box-shadow: 0 18px 40px rgba(0,0,0,.5); display: none;
+  box-shadow: 0 18px 40px rgba(20,30,40,.14); display: none;
 }
 .sugg.open { display: block; }
-.sugg div { padding: 10px 13px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #18222b; }
+.sugg div { padding: 10px 13px; cursor: pointer; font-size: 14px; border-bottom: 1px solid var(--line2); }
 .sugg div:last-child { border-bottom: none; }
-.sugg div:hover, .sugg div.hi { background: #1a2630; }
+.sugg div:hover, .sugg div.hi { background: var(--well2); }
 .sugg .prov  { color: var(--muted); font-size: 12px; margin-left: 6px; }
 .sugg .tp    { float: right; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }
 .sugg .tp.has { color: var(--good); }
-.sugg .tp.no  { color: #5d7384; }
+.sugg .tp.no  { color: var(--muted); }
 
 .ok-pill { display: none; margin-top: 8px; font-size: 12.5px; }
 .ok-pill.show { display: block; }
-.hint { display: none; margin-top: 8px; font-size: 12.5px; color: var(--accent); }
+.hint { display: none; margin-top: 8px; font-size: 12.5px; color: var(--accent-ink); }
 .hint.show { display: block; }
 .coefnote { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
 
 /* ── segmented buttons ── */
-.seg { display: flex; gap: 6px; background: #0e151b; border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.seg { display: flex; gap: 6px; background: var(--well); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
 .seg button { flex: 1; background: transparent; border: none; color: var(--soft); padding: 9px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .seg button.on { background: var(--accent); color: #1a1304; }
 .seg.sm button { padding: 7px; font-size: 12px; }
@@ -132,6 +136,18 @@ input:focus, select:focus {
   padding: 11px 13px; border-radius: 9px; display: none;
 }
 
+/* ── cabecera de tarjeta ── */
+.cardtitle { font-size: 15.5px; font-weight: 740; color: var(--text); margin: 0 0 4px; }
+.cardsub   { font-size: 13px; color: var(--soft); margin: 0 0 14px; }
+
+/* ── botón secundario (usar valor calculado) ── */
+.usebtn {
+  margin-top: 14px; background: transparent; color: var(--accent-ink);
+  border: 1px solid var(--line); padding: 10px 14px; border-radius: 9px;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.usebtn:hover { border-color: var(--accent); }
+
 /* ── resultado ── */
 .verdict {
   border-radius: var(--r); padding: 22px 22px 20px;
@@ -155,18 +171,18 @@ input:focus, select:focus {
 .bar .mk::after {
   content: attr(data-l); position: absolute; top: -22px;
   left: 50%; transform: translateX(-50%);
-  font-family: var(--mono); font-size: 11px; white-space: nowrap; color: #fff;
+  font-family: var(--mono); font-size: 11px; white-space: nowrap; color: var(--text);
 }
 .scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
 
 /* ── price box ── */
 .pricebox { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 640px) { .pricebox { grid-template-columns: 1fr; } }
-.pricebox .pb { background: #0e151b; border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.pricebox .pb { background: var(--well); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
 .pricebox .pb .k { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 6px; }
 .pricebox .pb .big { font-size: 26px; font-weight: 780; font-family: var(--mono); line-height: 1; }
 .pricebox .pb .big small { font-size: 12px; color: var(--muted); font-weight: 400; }
-.pricebox .pb .src { font-size: 11px; color: #5d7384; margin-top: 7px; }
+.pricebox .pb .src { font-size: 11px; color: var(--muted); margin-top: 7px; }
 .pricebox .pb.live { display: flex; flex-direction: column; justify-content: space-between; }
 .pricebox .pb.live a {
   margin-top: 10px; display: inline-flex; align-items: center; justify-content: center;
@@ -178,19 +194,19 @@ input:focus, select:focus {
 /* ── stats grid ── */
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
 @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } }
-.stat { background: #0e151b; border: 1px solid var(--line); border-radius: 11px; padding: 13px; }
+.stat { background: var(--well); border: 1px solid var(--line); border-radius: 11px; padding: 13px; }
 .stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 5px; }
 .stat .v { font-size: 19px; font-weight: 700; font-family: var(--mono); }
 .stat .v small { font-size: 11px; color: var(--muted); font-weight: 400; }
 
 /* ── adj note ── */
-.adj { margin-top: 14px; font-size: 13px; color: var(--soft); background: #0e151b; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.adj { margin-top: 14px; font-size: 13px; color: var(--soft); background: var(--well); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
 .adj b { color: var(--text); }
 
 /* ── tasa de esfuerzo ── */
 .esf {
   margin-top: 18px; border: 1px solid var(--line); border-radius: var(--r);
-  padding: 20px; background: linear-gradient(180deg, rgba(255,255,255,.02), transparent);
+  padding: 20px; background: linear-gradient(180deg, rgba(20,30,45,.03), transparent);
 }
 .esf .eh { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .esf .et { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
@@ -202,7 +218,7 @@ input:focus, select:focus {
 /* ── idealista block ── */
 .idea {
   margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px;
-  align-items: center; background: #0e151b;
+  align-items: center; background: var(--well);
   border: 1px solid var(--line); border-radius: 12px; padding: 15px;
 }
 .idea .ttl { font-size: 13px; color: var(--soft); flex: 1 1 100%; margin-bottom: 2px; }
@@ -217,7 +233,7 @@ input:focus, select:focus {
 
 .note {
   margin-top: 14px; font-size: 13px; color: var(--muted);
-  background: #0e151b; border: 1px solid var(--line);
+  background: var(--well); border: 1px solid var(--line);
   border-left: 3px solid var(--accent); padding: 11px 13px; border-radius: 8px;
 }
-.foot { margin-top: 30px; font-size: 12px; color: #5d7384; line-height: 1.6; }
+.foot { margin-top: 30px; font-size: 12px; color: var(--muted); line-height: 1.6; }

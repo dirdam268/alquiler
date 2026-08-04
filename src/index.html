@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Alquiler</title>
 <meta name="description" content="Compara la renta de un local comercial con el mercado y calcula la tasa de esfuerzo."/>
-<meta name="theme-color" content="#10161c"/>
+<meta name="theme-color" content="#eef1f6"/>
 <link rel="manifest" href="manifest.webmanifest"/>
 <link rel="icon" type="image/png" href="icon-192.png"/>
 <link rel="apple-touch-icon" href="icon-180.png"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="Alquiler"/>
 <!-- INJECT:CSS -->
 </head>
@@ -39,9 +39,10 @@
 
 <!-- Fila 2: Calle + eje comercial -->
 <div class="grid">
-  <div class="card">
+  <div class="card autobox">
     <label for="calle">Calle (opcional)</label>
     <input id="calle" autocomplete="off" placeholder="Ej. Montera, Preciados, Serrano..."/>
+    <div class="sugg" id="suggCalle"></div>
     <div class="hint" id="hint"></div>
   </div>
   <div class="card">
@@ -90,6 +91,23 @@
     <button class="clear" id="clear" type="button">Limpiar</button>
   </div>
   <div class="err" id="err"></div>
+</div>
+
+<!-- Calculadora: precio de venta -> renta objetivo -->
+<div class="card" style="margin-top:14px">
+  <p class="cardtitle">¿Tienes el precio de venta del local?</p>
+  <p class="cardsub">Calculo la renta anual y mensual equivalente a la rentabilidad que quieras aplicar.</p>
+  <div class="row2">
+    <div>
+      <label for="ventaPrecio">Precio de venta del local (€)</label>
+      <input id="ventaPrecio" type="text" inputmode="decimal" placeholder="Ej. 2.100.000"/>
+    </div>
+    <div>
+      <label for="rentabPct">Rentabilidad objetivo (%)</label>
+      <input id="rentabPct" type="text" inputmode="decimal" placeholder="Ej. 5" value="5"/>
+    </div>
+  </div>
+  <div id="yieldOut"></div>
 </div>
 
 <!-- Resultado -->
