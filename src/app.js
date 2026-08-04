@@ -161,8 +161,11 @@ function resolveLoc() {
 }
 
 // ── Autocomplete de calle ──────────────────────────────────────────────────────
+// Dos fuentes: (1) lista propia de calles prime → coeficiente conocido, instantánea.
+// (2) OpenStreetMap (Nominatim) → cualquier calle real de España, sin coeficiente
+// propio (se usa ×1,0, referencia media del distrito, ajustable a mano).
 
-let selectedCalle = null, hiCalle = -1, lastListCalle = [];
+let selectedCalle = null, hiCalle = -1, lastListCalle = [], calleDebounce = null, calleReqId = 0;
 
 function searchStreet(q) {
   const nq = norm(q);
@@ -174,13 +177,32 @@ function searchStreet(q) {
     .map(x => x.s);
 }
 
+async function searchStreetRemote(q) {
+  const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6"
+    + "&countrycodes=es&accept-language=es&q=" + encodeURIComponent(q + ", España");
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const seen = new Set();
+  return data
+    .filter(d => d.address && d.address.road)
+    .map(d => {
+      const a = d.address;
+      const desc = [a.suburb || a.city_district, a.city || a.town || a.village || a.municipality]
+        .filter(Boolean).join(", ");
+      return { name: a.road, desc, coef: "1.0", remote: true };
+    })
+    .filter(s => { const k = norm(s.name) + s.desc; if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
 function setSelectedCalle(s) {
   selectedCalle = s;
   document.getElementById("calle").value = s.name;
   document.getElementById("eje").value = s.coef;
   const hint = document.getElementById("hint");
-  hint.textContent = "Detectado: " + s.desc + " → " + EJE_LABEL[s.coef]
-    + " (×" + s.coef.replace(".", ",") + "). Puedes cambiarlo.";
+  hint.textContent = s.remote
+    ? "Calle real (OpenStreetMap)" + (s.desc ? " · " + s.desc : "") + ". Sin coeficiente propio: uso la referencia media del distrito (×1,0). Ajusta el eje comercial si conoces la calle."
+    : "Detectado: " + s.desc + " → " + EJE_LABEL[s.coef] + " (×" + s.coef.replace(".", ",") + "). Puedes cambiarlo.";
   hint.classList.add("show");
   document.getElementById("suggCalle").classList.remove("open");
 }
@@ -191,11 +213,69 @@ function renderSuggCalle(list) {
   lastListCalle = list;
   sugg.innerHTML = list.map((s, i) =>
     `<div data-i="${i}"><b>${s.name}</b><span class="prov">${s.desc}</span>`
-    + `<span class="tp has">×${s.coef.replace(".", ",")}</span></div>`
+    + `<span class="tp ${s.remote ? "no" : "has"}">${s.remote ? "OSM" : "×" + s.coef.replace(".", ",")}</span></div>`
   ).join("");
   sugg.classList.add("open");
   hiCalle = -1;
   [...sugg.children].forEach(el => el.onclick = () => setSelectedCalle(lastListCalle[+el.dataset.i]));
+}
+
+// ── Geolocalización ────────────────────────────────────────────────────────────
+// Usa el GPS del dispositivo + reverse geocoding de OpenStreetMap (Nominatim)
+// para rellenar ubicación y calle automáticamente. Requiere HTTPS (o localhost)
+// y el permiso de ubicación del navegador.
+
+function geolocate() {
+  const btn  = document.getElementById("geoBtn");
+  const gh   = document.getElementById("geoHint");
+  gh.classList.add("show");
+
+  if (!("geolocation" in navigator)) {
+    gh.textContent = "Tu navegador no admite geolocalización.";
+    return;
+  }
+
+  btn.classList.add("loading");
+  gh.textContent = "Buscando tu ubicación…";
+
+  navigator.geolocation.getCurrentPosition(async pos => {
+    try {
+      const { latitude, longitude } = pos.coords;
+      const url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1"
+        + "&accept-language=es&lat=" + latitude + "&lon=" + longitude;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("reverse geocoding failed");
+      const data = await res.json();
+      const a = data.address || {};
+
+      let matched = null;
+      for (const c of [a.suburb, a.city_district, a.town, a.village, a.municipality, a.city]) {
+        if (!c) continue;
+        const m = searchLoc(c);
+        if (m.length) { matched = m[0]; break; }
+      }
+      if (matched) setSelected(matched);
+
+      if (a.road) {
+        const found = searchStreet(a.road)[0];
+        setSelectedCalle(found || { name: a.road, desc: "detectada por GPS", coef: "1.0", remote: true });
+      }
+
+      gh.textContent = matched
+        ? "📍 " + clean(matched.localizacion) + (a.road ? " · " + a.road : "")
+        : (a.road ? "📍 Calle detectada (" + a.road + "), pero no encontré tu municipio/distrito en el fichero. Selecciónalo a mano."
+                  : "No pude identificar tu dirección exacta. Busca a mano.");
+    } catch (e) {
+      gh.textContent = "No pude consultar tu dirección (sin conexión o el servicio no responde). Busca a mano.";
+    } finally {
+      btn.classList.remove("loading");
+    }
+  }, err => {
+    btn.classList.remove("loading");
+    gh.textContent = err.code === err.PERMISSION_DENIED
+      ? "Has bloqueado el acceso a tu ubicación. Actívalo en los permisos del navegador."
+      : "No pude obtener tu ubicación (GPS no disponible).";
+  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
 }
 
 // ── HTML builders ─────────────────────────────────────────────────────────────
@@ -294,16 +374,18 @@ function calcular() {
   const m2      = parseNum(document.getElementById("m2").value);
   const rentVal = parseNum(document.getElementById("rent").value);
 
+  const calleTxt  = document.getElementById("calle").value.trim();
+
   function showErr(t) { const e = document.getElementById("err"); e.textContent = t; e.style.display = "block"; }
   if (!sel)        { showErr("Elige una ubicación de la lista (municipio o distrito)."); document.getElementById("loc").focus(); return; }
   if (!(m2 > 0))   { showErr("Introduce los metros cuadrados del local (ej. 450).");    document.getElementById("m2").focus();  return; }
+  if (!calleTxt)   { showErr("Introduce o busca la calle del local.");                  document.getElementById("calle").focus(); return; }
   if (!(rentVal > 0)) { showErr("Introduce la renta que te piden (ej. 3.500).");        document.getElementById("rent").focus(); return; }
 
   const unitMode = document.getElementById("mUnit").classList.contains("on");
   const unit  = unitMode ? rentVal : rentVal / m2;
   const total = unitMode ? rentVal * m2 : rentVal;
   const anual = total * 12;
-  const calleTxt  = document.getElementById("calle").value.trim();
   const { range, inside } = pickRange(m2);
   const base  = sel[range.key];
   const esf   = esfuerzoBlock(total);
@@ -423,6 +505,9 @@ function limpiar() {
   document.getElementById("yieldOut").innerHTML = "";
   document.getElementById("sugg").classList.remove("open");
   document.getElementById("suggCalle").classList.remove("open");
+  document.getElementById("geoHint").classList.remove("show");
+  document.getElementById("geoHint").textContent = "";
+  clearTimeout(calleDebounce);
   document.getElementById("mTotal").click();
   document.getElementById("ivaSi").click();
   document.getElementById("domNo").click();
@@ -456,7 +541,20 @@ document.addEventListener("DOMContentLoaded", () => {
   calleEl.addEventListener("input", () => {
     selectedCalle = null;
     document.getElementById("hint").classList.remove("show");
-    renderSuggCalle(searchStreet(calleEl.value));
+    const local = searchStreet(calleEl.value);
+    renderSuggCalle(local);
+
+    clearTimeout(calleDebounce);
+    const q = calleEl.value.trim();
+    if (q.length < 4) return;
+    const myReq = ++calleReqId;
+    calleDebounce = setTimeout(async () => {
+      let remote = [];
+      try { remote = await searchStreetRemote(q); } catch (e) { /* sin conexión: se queda con la lista local */ }
+      if (myReq !== calleReqId) return; // el usuario ya ha seguido escribiendo
+      const seen = new Set(local.map(s => norm(s.name)));
+      renderSuggCalle(local.concat(remote.filter(r => !seen.has(norm(r.name)))));
+    }, 450);
   });
   calleEl.addEventListener("keydown", e => {
     if (!suggCalle.classList.contains("open")) return;
@@ -476,6 +574,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // calculadora precio de venta → renta
   document.getElementById("ventaPrecio").addEventListener("input", calcYield);
   document.getElementById("rentabPct").addEventListener("input", calcYield);
+
+  // geolocalización
+  document.getElementById("geoBtn").addEventListener("click", geolocate);
 
   // segmented
   const seg = (a, b, onA, onB) => {

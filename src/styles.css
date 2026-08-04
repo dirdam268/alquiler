@@ -83,6 +83,18 @@ input:focus, select:focus {
   border-color: var(--accent); box-shadow: 0 0 0 3px rgba(244,184,64,.15);
 }
 
+/* ── geolocalización ── */
+.locrow { display: flex; gap: 8px; align-items: stretch; }
+.locrow input { flex: 1; min-width: 0; }
+.geobtn {
+  flex: 0 0 auto; width: 46px; background: var(--well); border: 1px solid var(--line);
+  border-radius: 10px; font-size: 18px; cursor: pointer; color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+}
+.geobtn:hover { border-color: var(--accent); }
+.geobtn.loading { opacity: .55; cursor: wait; animation: geopulse 1s ease-in-out infinite; }
+@keyframes geopulse { 0%,100% { opacity: .35; } 50% { opacity: .8; } }
+
 /* ── autocomplete ── */
 .autobox { position: relative; }
 .sugg {

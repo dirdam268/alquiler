@@ -26,9 +26,13 @@
 <div class="grid">
   <div class="card autobox">
     <label for="loc">Ubicación (municipio o distrito)</label>
-    <input id="loc" autocomplete="off" placeholder="Ej. Centro, Leganés, Boadilla del Monte..."/>
+    <div class="locrow">
+      <input id="loc" autocomplete="off" placeholder="Ej. Centro, Leganés, Boadilla del Monte..."/>
+      <button type="button" class="geobtn" id="geoBtn" title="Usar mi ubicación actual">📍</button>
+    </div>
     <div class="sugg" id="sugg"></div>
     <div class="ok-pill" id="okpill"></div>
+    <div class="hint" id="geoHint"></div>
   </div>
   <div class="card">
     <label for="m2">Superficie del local (m²)</label>
@@ -40,10 +44,11 @@
 <!-- Fila 2: Calle + eje comercial -->
 <div class="grid">
   <div class="card autobox">
-    <label for="calle">Calle (opcional)</label>
-    <input id="calle" autocomplete="off" placeholder="Ej. Montera, Preciados, Serrano..."/>
+    <label for="calle">Calle</label>
+    <input id="calle" autocomplete="off" placeholder="Ej. Montera, Preciados, Serrano, o cualquier calle real..."/>
     <div class="sugg" id="suggCalle"></div>
     <div class="hint" id="hint"></div>
+    <div class="coefnote">Calles fuera de la lista de calles prime: búsqueda por OpenStreetMap.</div>
   </div>
   <div class="card">
     <label for="eje">Tipo de eje comercial</label>
