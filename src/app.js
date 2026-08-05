@@ -19,26 +19,30 @@ const TE_OPTIMO = 0.50;   // umbral inferior tasa de esfuerzo
 // Cobertura limitada y manual (sin fuente de precios por calle real).
 // El coeficiente es orientativo: sirve para ajustar el precio del distrito,
 // no es un dato medido calle a calle.
+// `zona` es el distrito del fichero que corresponde a la calle: al elegirla se
+// rellena sola la ubicación. Solo se pone donde el fichero tiene esa zona
+// (distritos de Madrid y Barcelona); Valencia, Sevilla, Bilbao y Málaga no
+// están en el dataset, así que esas calles no pueden autocompletar nada.
 const STREETS = [
-  { name: "Montera",                coef: "2.2", desc: "eje prime de Centro, Madrid" },
-  { name: "Preciados",              coef: "2.2", desc: "eje prime de Centro, Madrid" },
-  { name: "Gran Vía",               coef: "2.2", desc: "eje prime, Madrid" },
-  { name: "Carmen",                 coef: "1.4", desc: "calle comercial de Centro" },
-  { name: "Fuencarral",             coef: "1.4", desc: "calle comercial principal, Madrid" },
-  { name: "Serrano",                coef: "2.2", desc: "eje prime de Salamanca, Madrid" },
-  { name: "José Ortega y Gasset",   coef: "2.2", desc: "eje prime de Salamanca (lujo)" },
-  { name: "Goya",                   coef: "1.4", desc: "calle comercial principal, Salamanca" },
-  { name: "Príncipe de Vergara",    coef: "1.4", desc: "calle comercial, Salamanca" },
-  { name: "Velázquez",              coef: "1.4", desc: "calle comercial, Salamanca" },
-  { name: "Bravo Murillo",          coef: "1.0", desc: "calle media, Tetuán" },
-  { name: "Alcalá",                 coef: "1.4", desc: "eje principal, Madrid" },
-  { name: "Portal de l'Àngel",      coef: "2.2", desc: "eje prime de Ciutat Vella, Barcelona" },
-  { name: "Passeig de Gràcia",      coef: "2.2", desc: "eje prime de Eixample, Barcelona (lujo)" },
-  { name: "Rambla de Catalunya",    coef: "1.4", desc: "calle comercial principal, Eixample" },
-  { name: "Portaferrissa",          coef: "2.2", desc: "eje prime de Ciutat Vella, Barcelona" },
-  { name: "Pelai",                  coef: "2.2", desc: "eje prime, Barcelona" },
-  { name: "Diagonal",               coef: "1.4", desc: "eje principal, Barcelona" },
-  { name: "La Rambla",              coef: "2.2", desc: "eje prime turístico, Barcelona" },
+  { name: "Montera",                coef: "2.2", desc: "eje prime de Centro, Madrid",           zona: { n: "Centro",       p: "Madrid" } },
+  { name: "Preciados",              coef: "2.2", desc: "eje prime de Centro, Madrid",           zona: { n: "Centro",       p: "Madrid" } },
+  { name: "Gran Vía",               coef: "2.2", desc: "eje prime, Madrid",                     zona: { n: "Centro",       p: "Madrid" } },
+  { name: "Carmen",                 coef: "1.4", desc: "calle comercial de Centro",             zona: { n: "Centro",       p: "Madrid" } },
+  { name: "Fuencarral",             coef: "1.4", desc: "calle comercial principal, Madrid",     zona: { n: "Centro",       p: "Madrid" } },
+  { name: "Serrano",                coef: "2.2", desc: "eje prime de Salamanca, Madrid",        zona: { n: "Salamanca",    p: "Madrid" } },
+  { name: "José Ortega y Gasset",   coef: "2.2", desc: "eje prime de Salamanca (lujo)",         zona: { n: "Salamanca",    p: "Madrid" } },
+  { name: "Goya",                   coef: "1.4", desc: "calle comercial principal, Salamanca",  zona: { n: "Salamanca",    p: "Madrid" } },
+  { name: "Príncipe de Vergara",    coef: "1.4", desc: "calle comercial, Salamanca",            zona: { n: "Salamanca",    p: "Madrid" } },
+  { name: "Velázquez",              coef: "1.4", desc: "calle comercial, Salamanca",            zona: { n: "Salamanca",    p: "Madrid" } },
+  { name: "Bravo Murillo",          coef: "1.0", desc: "calle media, Tetuán",                   zona: { n: "Tetuán",       p: "Madrid" } },
+  { name: "Alcalá",                 coef: "1.4", desc: "eje principal, Madrid",                 zona: { n: "Centro",       p: "Madrid" } },
+  { name: "Portal de l'Àngel",      coef: "2.2", desc: "eje prime de Ciutat Vella, Barcelona",  zona: { n: "Ciutat Vella", p: "Barcelona" } },
+  { name: "Passeig de Gràcia",      coef: "2.2", desc: "eje prime de Eixample, Barcelona (lujo)", zona: { n: "Eixample",   p: "Barcelona" } },
+  { name: "Rambla de Catalunya",    coef: "1.4", desc: "calle comercial principal, Eixample",   zona: { n: "Eixample",     p: "Barcelona" } },
+  { name: "Portaferrissa",          coef: "2.2", desc: "eje prime de Ciutat Vella, Barcelona",  zona: { n: "Ciutat Vella", p: "Barcelona" } },
+  { name: "Pelai",                  coef: "2.2", desc: "eje prime, Barcelona",                  zona: { n: "Ciutat Vella", p: "Barcelona" } },
+  { name: "Diagonal",               coef: "1.4", desc: "eje principal, Barcelona",              zona: { n: "Eixample",     p: "Barcelona" } },
+  { name: "La Rambla",              coef: "2.2", desc: "eje prime turístico, Barcelona",        zona: { n: "Ciutat Vella", p: "Barcelona" } },
   { name: "Colón",                  coef: "2.2", desc: "eje prime, Valencia" },
   { name: "Sorní",                  coef: "1.4", desc: "calle comercial, Valencia" },
   { name: "Tetuán",                 coef: "2.2", desc: "eje prime, Sevilla" },
@@ -190,19 +194,59 @@ async function searchStreetRemote(q) {
       const a = d.address;
       const desc = [a.suburb || a.city_district, a.city || a.town || a.village || a.municipality]
         .filter(Boolean).join(", ");
-      return { name: a.road, desc, coef: "1.0", remote: true };
+      // Se guarda la dirección completa, no solo el texto: sirve para rellenar
+      // solo el municipio/distrito y no pedírselo otra vez al usuario.
+      return { name: a.road, desc, coef: "1.0", remote: true, addr: a };
     })
     .filter(s => { const k = norm(s.name) + s.desc; if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+/** Traduce una dirección de OpenStreetMap a una ubicación del fichero.
+ *  Ojo con los homónimos: "Salamanca" es a la vez un municipio y un distrito de
+ *  Madrid, así que el barrio solo vale si la provincia coincide con la ciudad. */
+function matchLocFromAddress(a) {
+  if (!a || !window.DATA) return null;
+  const ciudad = a.city || a.town || a.village || a.municipality || "";
+  const barrio = a.suburb || a.city_district || a.quarter || "";
+  const nc = norm(ciudad), nb = norm(barrio);
+
+  if (nb && nc) {
+    const d = window.DATA.find(x => norm(clean(x.localizacion)) === nb && norm(x.provincia) === nc);
+    if (d) return d;
+  }
+  if (nc) {
+    const d = window.DATA.find(x => norm(clean(x.localizacion)) === nc && x.tipo === "municipio");
+    if (d) return d;
+  }
+  if (nb) {
+    const m = searchLoc(barrio);
+    if (m.length) return m[0];
+  }
+  return null;
 }
 
 function setSelectedCalle(s) {
   selectedCalle = s;
   document.getElementById("calle").value = s.name;
   document.getElementById("eje").value = s.coef;
+
+  // Si la calle ya identifica el municipio o distrito, se rellena solo: no tiene
+  // sentido obligar a escribir arriba lo que se acaba de elegir abajo.
+  let auto = null;
+  if (!selected) {
+    auto = s.addr ? matchLocFromAddress(s.addr)
+         : (s.zona ? window.DATA.find(x => norm(clean(x.localizacion)) === norm(s.zona.n)
+                                        && norm(x.provincia) === norm(s.zona.p)) : null);
+    if (auto) setSelected(auto);
+  }
+
   const hint = document.getElementById("hint");
-  hint.textContent = s.remote
+  const base = s.remote
     ? "Calle real (OpenStreetMap)" + (s.desc ? " · " + s.desc : "") + ". Sin coeficiente propio: uso la referencia media del distrito (×1,0). Ajusta el eje comercial si conoces la calle."
     : "Detectado: " + s.desc + " → " + EJE_LABEL[s.coef] + " (×" + s.coef.replace(".", ",") + "). Puedes cambiarlo.";
+  hint.textContent = auto
+    ? base + " Ubicación rellenada automáticamente: " + clean(auto.localizacion) + " (" + auto.tipo + ")."
+    : base;
   hint.classList.add("show");
   document.getElementById("suggCalle").classList.remove("open");
 }
@@ -248,12 +292,9 @@ function geolocate() {
       const data = await res.json();
       const a = data.address || {};
 
-      let matched = null;
-      for (const c of [a.suburb, a.city_district, a.town, a.village, a.municipality, a.city]) {
-        if (!c) continue;
-        const m = searchLoc(c);
-        if (m.length) { matched = m[0]; break; }
-      }
+      // Mismo emparejamiento que al elegir calle: distingue el distrito Salamanca
+      // de Madrid del municipio de Salamanca usando la ciudad.
+      const matched = matchLocFromAddress(a);
       if (matched) setSelected(matched);
 
       if (a.road) {
