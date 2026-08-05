@@ -119,6 +119,28 @@ input:focus, select:focus {
 .hint.show { display: block; }
 .coefnote { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
 
+/* ── aviso de zona A1 / A2 ── */
+.zona-aviso { display: none; margin-top: 12px; }
+.zona-aviso.show { display: block; }
+.zona-aviso {
+  background: rgba(242,172,44,.10); border: 1px solid var(--accent);
+  border-radius: 11px; padding: 13px 14px;
+}
+.zona-aviso .zt { font-size: 13.5px; font-weight: 760; color: var(--accent-ink); margin-bottom: 5px; }
+.zona-aviso .zq { font-size: 12.5px; color: var(--soft); line-height: 1.45; }
+.zona-aviso .zopts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.zona-aviso .zopt {
+  flex: 1 1 150px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+  padding: 9px 11px; cursor: pointer; font-family: inherit; text-align: left;
+}
+.zona-aviso .zopt:hover:not(:disabled) { border-color: var(--accent); }
+.zona-aviso .zopt.on { border-color: var(--accent); background: var(--accent); cursor: default; }
+.zona-aviso .zopt.on .zn, .zona-aviso .zopt.on .zp { color: #3b2a06; }
+.zona-aviso .zn { font-size: 12px; font-weight: 700; color: var(--text); }
+.zona-aviso .zp { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.zona-aviso .zf { margin-top: 9px; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+
 /* ── segmented buttons ── */
 .seg { display: flex; gap: 6px; background: var(--well); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
 .seg button { flex: 1; background: transparent; border: none; color: var(--soft); padding: 9px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }

@@ -49,6 +49,14 @@ def num(x):
     except (TypeError, ValueError):
         return None
 
+def pct(x):
+    """Yields: 4 decimales. Con round(...,3) el 7,25% se guardaba como 0.072 y
+    el 7,75% como 0.077, perdiendo el cuarto de punto."""
+    try:
+        return round(float(x), 4)
+    except (TypeError, ValueError):
+        return None
+
 # distritos de Madrid y Barcelona (slug manual, más fiable que el automático)
 MAD_DIST = {
     "Arganzuela": "arganzuela", "Barajas": "barajas", "Carabanchel": "carabanchel",
@@ -125,7 +133,7 @@ for sheet_name, df in sheets.items():
             "provincia":   prov,
             "localizacion": loc_str,
             "tipo":        mode,
-            "yield":       num(yld),
+            "yield":       pct(yld),
             "idealista":   url,
             "hasData":     True,
             "r1": rng(4,  5,  6),

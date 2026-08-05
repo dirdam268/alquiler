@@ -121,7 +121,10 @@ function searchLoc(q) {
   for (const d of window.DATA) {
     const n = norm(d.localizacion);
     if (n.includes(q)) {
-      const k = n + d.provincia;
+      // La clave usa el nombre SIN normalizar: norm() quita el sufijo "- A1"/"- A2",
+      // así que con el nombre normalizado la zona A2 se descartaba como duplicada
+      // y nunca llegaba a aparecer en el buscador.
+      const k = d.localizacion + "|" + d.provincia;
       if (!seen.has(k)) {
         seen.add(k);
         out.push({ d, exact: n === q, starts: n.startsWith(q), has: d.hasData ? 1 : 0 });
@@ -132,26 +135,87 @@ function searchLoc(q) {
   return out.map(o => o.d);
 }
 
+// ── Zonas A1 / A2 ─────────────────────────────────────────────────────────────
+// El fichero parte muchas ciudades en dos zonas: A1 (prime) y A2 (secundaria),
+// con precios que llegan a diferirse en más del triple. Como el nombre que se
+// muestra es el mismo, hay que distinguirlas y confirmar la elección.
+
+const ZONA_LABEL = { "1": "A1 · zona prime", "2": "A2 · zona secundaria" };
+
+function zonaDe(d) {
+  const m = /- A(\d)$/i.exec(d.localizacion || "");
+  return m ? m[1] : null;
+}
+
+/** Devuelve la otra zona de la misma ciudad, si existe. */
+function zonaHermana(d) {
+  const z = zonaDe(d);
+  if (!z || !window.DATA) return null;
+  const base = clean(d.localizacion);
+  return window.DATA.find(x => x !== d
+    && x.provincia === d.provincia
+    && clean(x.localizacion) === base
+    && zonaDe(x) && zonaDe(x) !== z) || null;
+}
+
+/** Aviso de confirmación cuando la ciudad tiene dos zonas con precios distintos. */
+function renderZonaAviso(d) {
+  const box = document.getElementById("zonaAviso");
+  const otra = zonaHermana(d);
+  const z = zonaDe(d);
+  if (!otra || !z) { box.classList.remove("show"); box.innerHTML = ""; return; }
+
+  const pA = d.r1 ? d.r1.medio : null;
+  const pB = otra.r1 ? otra.r1.medio : null;
+  const veces = (pA && pB) ? (Math.max(pA, pB) / Math.min(pA, pB)) : null;
+
+  box.innerHTML = `
+    <div class="zt">¿Seguro que es la zona correcta?</div>
+    <div class="zq"><b>${clean(d.localizacion)}</b> está dividida en dos zonas con precios muy distintos${
+      veces ? ` (una es <b>${veces.toLocaleString("es-ES", { maximumFractionDigits: 1 })}×</b> la otra)` : ""}.
+      Has elegido <b>${ZONA_LABEL[z]}</b>.</div>
+    <div class="zopts">
+      <button type="button" class="zopt on" disabled>
+        <span class="zn">${ZONA_LABEL[z]}</span>
+        <span class="zp">${pA ? eur2(pA) + " €/m²/mes" : "sin precio"}</span>
+      </button>
+      <button type="button" class="zopt" id="zonaCambiar">
+        <span class="zn">Cambiar a ${ZONA_LABEL[zonaDe(otra)]}</span>
+        <span class="zp">${pB ? eur2(pB) + " €/m²/mes" : "sin precio"}</span>
+      </button>
+    </div>
+    <div class="zf">A1 es el eje comercial principal; A2 el resto de la ciudad. Si no lo tienes claro, comprueba la calle en Idealista antes de decidir.</div>`;
+  box.classList.add("show");
+  const btn = document.getElementById("zonaCambiar");
+  if (btn) btn.onclick = () => setSelected(otra);
+}
+
 function setSelected(d) {
   selected = d;
   document.getElementById("loc").value = clean(d.localizacion) + " · " + d.provincia;
   const pill = document.getElementById("okpill");
+  const z = zonaDe(d);
   pill.style.color = d.hasData ? "var(--good)" : "var(--accent-ink)";
   pill.textContent = (d.hasData ? "✓ " : "⚠ ")
-    + clean(d.localizacion) + " (" + d.provincia + " · " + d.tipo + ")"
+    + clean(d.localizacion) + " (" + d.provincia + " · " + d.tipo
+    + (z ? " · " + ZONA_LABEL[z] : "") + ")"
     + (d.hasData ? "" : " — sin precio en el fichero, solo Idealista");
   pill.classList.add("show");
   document.getElementById("sugg").classList.remove("open");
+  renderZonaAviso(d);
+  aplicarYield(d);
 }
 
 function renderSugg(list) {
   const sugg = document.getElementById("sugg");
   if (!list.length) { sugg.classList.remove("open"); return; }
   lastList = list;
-  sugg.innerHTML = list.map((d, i) =>
-    `<div data-i="${i}"><b>${clean(d.localizacion)}</b><span class="prov">${d.provincia}</span>`
-    + `<span class="tp ${d.hasData ? "has" : "no"}">${d.hasData ? d.tipo : "Idealista"}</span></div>`
-  ).join("");
+  sugg.innerHTML = list.map((d, i) => {
+    const z = zonaDe(d);
+    return `<div data-i="${i}"><b>${clean(d.localizacion)}</b>`
+      + `<span class="prov">${d.provincia}${z ? " · " + ZONA_LABEL[z] : ""}</span>`
+      + `<span class="tp ${d.hasData ? "has" : "no"}">${d.hasData ? d.tipo : "Idealista"}</span></div>`;
+  }).join("");
   sugg.classList.add("open");
   hi = -1;
   [...sugg.children].forEach(el => el.onclick = () => setSelected(lastList[+el.dataset.i]));
@@ -485,6 +549,32 @@ function esfuerzoBlock(rentMonthly) {
 
 // ── Calculadora: precio de venta → renta objetivo ────────────────────────────
 
+// El fichero trae la rentabilidad (yield) de cada ubicación: 7,00 / 7,25 / 7,50
+// / 7,75 %. Se propone como valor de partida, pero manda siempre el usuario: en
+// cuanto toca el campo, deja de sobrescribirse.
+let rentabTocada = false;
+
+function aplicarYield(d) {
+  const nota = document.getElementById("yieldNota");
+  const inp  = document.getElementById("rentabPct");
+  if (!nota || !inp) return;
+
+  if (!d || !(d.yield > 0)) { nota.classList.remove("show"); nota.textContent = ""; return; }
+
+  const pct = (d.yield * 100).toLocaleString("es-ES", { maximumFractionDigits: 2 });
+  if (!rentabTocada) {
+    inp.value = pct;
+    nota.textContent = "Rentabilidad de " + clean(d.localizacion) + " según el fichero: "
+      + pct + "%. Puedes cambiarla.";
+    calcYield();
+  } else {
+    nota.textContent = "El fichero da " + pct + "% para " + clean(d.localizacion)
+      + ". Mantengo el " + (parseNum(inp.value) || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 })
+      + "% que has puesto tú.";
+  }
+  nota.classList.add("show");
+}
+
 function calcYield() {
   const out    = document.getElementById("yieldOut");
   const precio = parseNum(document.getElementById("ventaPrecio").value);
@@ -691,6 +781,11 @@ function limpiar() {
   document.getElementById("suggCalle").classList.remove("open");
   document.getElementById("geoHint").classList.remove("show");
   document.getElementById("geoHint").textContent = "";
+  document.getElementById("zonaAviso").classList.remove("show");
+  document.getElementById("zonaAviso").innerHTML = "";
+  document.getElementById("yieldNota").classList.remove("show");
+  document.getElementById("yieldNota").textContent = "";
+  rentabTocada = false;
   clearTimeout(calleDebounce);
   document.getElementById("mTotal").click();
   document.getElementById("ivaSi").click();
@@ -757,7 +852,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // calculadora precio de venta → renta
   document.getElementById("ventaPrecio").addEventListener("input", calcYield);
-  document.getElementById("rentabPct").addEventListener("input", calcYield);
+  document.getElementById("rentabPct").addEventListener("input", () => {
+    // A partir de aquí manda el usuario: el yield del fichero ya no pisa el valor
+    rentabTocada = true;
+    document.getElementById("yieldNota").classList.remove("show");
+    calcYield();
+  });
 
   // geolocalización
   document.getElementById("geoBtn").addEventListener("click", geolocate);
