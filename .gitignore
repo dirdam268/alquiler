@@ -1,0 +1,12 @@
+# --- Datos internos: NUNCA se publican -------------------------------------
+# Alquileres realmente pagados en las tiendas (fichero economico interno).
+src/tiendas.json
+sources/
+
+# App en claro generada por scripts\build.ps1. El fichero que se publica es
+# app\index.html, que genera scripts\build-secure.ps1 ya cifrado.
+build/
+
+# Ficheros fuente del usuario (xlsx/xls originales) por si se copian al repo
+*.xlsx
+*.xls

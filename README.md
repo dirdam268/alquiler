@@ -33,14 +33,19 @@ ALQUILER/
 │   └── icon-*.png                     # Iconos (generados por make_icons.ps1)
 │
 ├── scripts/                      # Scripts de build
-│   ├── build.ps1                      # Genera app\ (PowerShell, sin dependencias)
+│   ├── build.ps1                      # Genera build\index.html en claro (sin dependencias)
+│   ├── build-secure.ps1               # Cifra build\ → app\index.html (el que se publica)
+│   ├── build_tiendas.ps1              # Extrae los alquileres reales del xlsx interno
 │   ├── make_icons.ps1                 # Regenera los iconos PNG
 │   ├── serve.ps1                      # Servidor local de prueba (puerto 8765)
 │   ├── build_data.py                  # Genera src/precios.json (requiere Python)
 │   └── build_html.py                  # Build original en Python (alternativa a build.ps1)
 │
+├── build/                        # App en claro — NO se publica (.gitignore)
+│   └── index.html
+│
 └── app/                          # Salida de producción — carpeta lista para publicar
-    ├── index.html                     # HTML único autocontenido (CSS+JS+datos embebidos)
+    ├── index.html                     # Contenedor CIFRADO (pide contraseña)
     ├── manifest.webmanifest / sw.js / icon-*.png
 ```
 
@@ -52,15 +57,38 @@ ALQUILER/
 sources/*.xls + municipios_ine.csv
         ↓  build_data.py (Python, solo si cambian los datos)
     src/precios.json
+
+Datos economicos tiendas Express.xlsx   (fichero interno, fuera del repo)
+        ↓  build_tiendas.ps1
+    src/tiendas.json          ← DATOS INTERNOS, en .gitignore
+
         ↓  build.ps1  (+ src/styles.css + src/app.js + src/index.html + pwa/*)
-    app/   ← carpeta final para usar/publicar
+    build/index.html          ← app EN CLARO, en .gitignore
+
+        ↓  build-secure.ps1 -Password '<clave>'
+    app/index.html            ← CIFRADO, esto es lo único que se publica
 ```
+
+> 🔒 **La app se publica cifrada.** Lleva los alquileres realmente pagados en las
+> tiendas, así que `app\index.html` es un contenedor AES-256 que pide contraseña
+> al abrirlo (solo la primera vez por dispositivo; luego se recuerda en
+> `localStorage`, clave `alq_pw`).
+>
+> **Nunca edites `app\index.html` a mano** — es generado. Edita `src\` y vuelve
+> a compilar. La contraseña no está guardada en ningún fichero del repo: se pasa
+> por parámetro en cada build.
 
 ### Comandos
 
 ```powershell
-# Compilar la app (cada vez que cambies algo en src\ o pwa\)
+# 1) Regenerar los alquileres reales (solo si cambia el xlsx interno)
+powershell -ExecutionPolicy Bypass -File scripts\build_tiendas.ps1
+
+# 2) Compilar la app en claro (cada vez que cambies algo en src\ o pwa\)
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1
+
+# 3) Cifrar y generar el fichero que se publica
+powershell -ExecutionPolicy Bypass -File scripts\build-secure.ps1 -Password '<clave>'
 
 # Regenerar iconos (solo si cambias el diseño del icono)
 powershell -ExecutionPolicy Bypass -File scripts\make_icons.ps1
@@ -128,6 +156,33 @@ Valoración:
   50% – 80%     → Viable
   < 50%         → Óptimo
 ```
+
+### Alquileres reales pagados (tiendas Express)
+
+Fuente: `Datos economicos tiendas Express.xlsx`, extracto contable de **septiembre de 2016**.
+Se muestran como contraste al buscar por calle o por ciudad: son rentas realmente
+facturadas, no una estimación. `total = renta + gastos repercutidos`
+(comunidad, tasas, IBI, vados, pasos de servidumbre).
+
+Detalles del origen que condicionan la extracción (ver `scripts/build_tiendas.ps1`):
+
+- El texto del asiento viene **truncado a 40 caracteres** por SAP.
+- Un mismo local puede estar **repartido entre varios propietarios**, con el texto
+  ligeramente distinto. Se agrupa por `código + tipo + calle normalizada`, no por
+  el texto literal, para no partir un local en dos ni perder conceptos.
+- Un código de tienda puede tener local + almacén + espacio de vending: se guardan
+  por separado y etiquetados (un almacén no es comparable con un local a pie de calle).
+- Se descartan las **periodificaciones** (`GASTOS ANTICIPADOS`): no son cuota mensual.
+- El fichero **no trae superficie**, así que estas referencias son € totales al mes,
+  **no €/m²**, y no son directamente comparables con el resto de la app.
+- La ciudad casi nunca está en el asiento. Se completa en `$CIUDAD_MANUAL` solo donde
+  hay evidencia (provincia del CIF del arrendador, o nombre inequívoco de una ciudad).
+  Las que no la tienen se quedan sin ciudad a propósito: es preferible que no salgan
+  en una búsqueda por zona antes que atribuirlas a la ciudad equivocada.
+
+> El fichero guarda la **ciudad**, no el distrito. Al consultar un distrito de Madrid
+> se comparan contra "Madrid" y se etiquetan como *otros inmuebles en Madrid*, sin dar
+> a entender que estén en ese distrito concreto.
 
 ### Municipios de Madrid
 

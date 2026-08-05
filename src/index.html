@@ -19,13 +19,13 @@
 <header>
   <p class="eyebrow">Alquiler · local comercial · €/m²/mes · tasa de esfuerzo</p>
   <h1>¿Está bien ese alquiler?</h1>
-  <p class="sub">Ubicación, calle, metros y renta: comparo con el mercado del distrito. Si añades la cifra de ventas, calculo la tasa de esfuerzo (Óptimo / Viable / Riesgo) con tu metodología.</p>
+  <p class="sub">Ubicación, calle, metros y renta: comparo con el mercado del distrito y con los alquileres realmente pagados en las tiendas Express. Si añades la cifra de ventas, calculo la tasa de esfuerzo (Óptimo / Viable / Riesgo) con tu metodología.</p>
 </header>
 
 <!-- Fila 1: Ubicación + m² -->
 <div class="grid">
   <div class="card autobox">
-    <label for="loc">Ubicación (municipio o distrito)</label>
+    <label for="loc">Ubicación (municipio o distrito) · opcional si indicas la calle</label>
     <div class="locrow">
       <input id="loc" autocomplete="off" placeholder="Ej. Centro, Leganés, Boadilla del Monte..."/>
       <button type="button" class="geobtn" id="geoBtn" title="Usar mi ubicación actual">📍</button>
@@ -121,6 +121,7 @@
 </div>
 
 <!-- INJECT:DATA -->
+<!-- INJECT:TIENDAS -->
 <!-- INJECT:JS -->
 <script>
 if ("serviceWorker" in navigator &&

@@ -281,12 +281,119 @@ function geolocate() {
 // ── HTML builders ─────────────────────────────────────────────────────────────
 
 function ideaBlock(sel, calleTxt) {
+  const zona = sel ? clean(sel.localizacion) + " " + sel.provincia : "";
   const gq = encodeURIComponent("site:idealista.com alquiler locales "
-    + (calleTxt ? calleTxt + " " : "") + clean(sel.localizacion) + " " + sel.provincia);
+    + (calleTxt ? calleTxt + " " : "") + zona);
+  const donde = [sel ? clean(sel.localizacion) : "", calleTxt].filter(Boolean).join(" · ");
   return `<div class="idea">
-    <div class="ttl">Oferta real en <b>Idealista</b> — locales en alquiler en ${clean(sel.localizacion)}${calleTxt ? " · " + calleTxt : ""}</div>
-    <a href="${sel.idealista}" target="_blank" rel="noopener">Ver locales en el distrito →</a>
+    <div class="ttl">Oferta real en <b>Idealista</b> — locales en alquiler${donde ? " en " + donde : ""}</div>
+    ${sel ? `<a href="${sel.idealista}" target="_blank" rel="noopener">Ver locales en el distrito →</a>` : ""}
     <a class="ghost" href="https://www.google.com/search?q=${gq}" target="_blank" rel="noopener">Buscar por calle</a>
+  </div>`;
+}
+
+// ── Alquileres reales pagados (fichero de tiendas Express, 09/2016) ──────────
+// Referencia de contraste: son rentas realmente facturadas, no una estimacion.
+// El fichero no trae superficie, asi que se muestra el total mensual, no €/m².
+
+const TIPO_LABEL = { local: "local", almacen: "almacén", vending: "vending" };
+
+/** Clave comparable de calle: sin acentos, sin prefijo de via y sin portal. */
+function calleKey(s) {
+  return norm(s)
+    .replace(/^(c\/|calle|pza\.?|plaza|avda\.?|avenida|paseo|passeig|carrer)\s*/, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s*\b\d+\b\s*$/, "")
+    .replace(/\s+/g, " ").trim();
+}
+
+/** Busca inmuebles del fichero que casen con la calle o con la ubicación.
+ *  El fichero guarda la ciudad, no el distrito: si se consulta un distrito de
+ *  Madrid se comparan contra "Madrid" y se etiquetan como tales, sin dar a
+ *  entender que estén en ese distrito concreto. */
+function findTiendas(calleTxt, sel) {
+  if (!window.TIENDAS) return { calle: [], zona: [], zonaLabel: "" };
+  const ck = calleKey(calleTxt || "");
+
+  const esDistritoMadrid = sel && sel.tipo === "distrito" && sel.provincia === "Madrid";
+  const zonaLabel = !sel ? "" : (esDistritoMadrid ? "Madrid" : clean(sel.localizacion));
+  const loc = norm(zonaLabel);
+
+  const porCalle = !ck ? [] : window.TIENDAS.filter(t => {
+    const tk = calleKey(t.calle || "");
+    return tk && (tk === ck || tk.includes(ck) || ck.includes(tk));
+  });
+
+  // Coincidencias por ciudad, excluyendo las ya mostradas por calle
+  const yaSalen = new Set(porCalle.map(t => t.codigo + "|" + t.calle + "|" + t.tipo));
+  const porZona = !loc ? [] : window.TIENDAS.filter(t => {
+    if (yaSalen.has(t.codigo + "|" + t.calle + "|" + t.tipo)) return false;
+    const c = norm(t.ciudad || "");
+    return c && (c === loc || c.includes(loc) || loc.includes(c));
+  });
+
+  return { calle: porCalle, zona: porZona, zonaLabel };
+}
+
+function tiendaRow(t) {
+  const partes = Object.keys(t.desglose || {});
+  const desg = partes.length
+    ? partes.map(k => `${k.toLowerCase()} ${eur(t.desglose[k])} €`).join(" · ")
+    : "sin gastos repercutidos";
+  const donde = [t.calle, t.ciudad].filter(Boolean).join(" · ");
+  return `<div class="trow">
+    <div class="tinfo">
+      <b>${donde || "(sin dirección)"}</b>
+      <span class="tmeta">tienda ${t.codigo}${t.tipo !== "local" ? " · " + TIPO_LABEL[t.tipo] : ""}</span>
+      <span class="tmeta">renta ${eur(t.renta)} €${t.extras ? " + gastos " + eur(t.extras) + " € (" + desg + ")" : ""}</span>
+    </div>
+    <div class="ttotal">${eur(t.total)}<small> €/mes</small></div>
+  </div>`;
+}
+
+function tiendasBlock(calleTxt, sel, total) {
+  const { calle, zona, zonaLabel } = findTiendas(calleTxt, sel);
+  if (!calle.length && !zona.length) return "";
+
+  const lista = calle.concat(zona);
+  const locales = lista.filter(t => t.tipo === "local");
+  const media = locales.length
+    ? locales.reduce((a, t) => a + t.total, 0) / locales.length
+    : 0;
+
+  // La coincidencia por ciudad puede devolver decenas de inmuebles (Madrid son
+  // 34): se listan los más baratos y caros para dar la horquilla sin alargar
+  // la página. La media se calcula sobre todos, no solo sobre los mostrados.
+  const TOPE = 6;
+  let zonaVis = zona, zonaResto = 0;
+  if (zona.length > TOPE) {
+    const ord = [...zona].sort((a, b) => a.total - b.total);
+    zonaVis = ord.slice(0, 3).concat(ord.slice(-3));
+    zonaResto = zona.length - zonaVis.length;
+  }
+
+  const dPct = (total - media) / media * 100;
+  const dTxt = Math.abs(dPct) < 0.5
+    ? `prácticamente <b>igual</b> que`
+    : `un <b style="color:${dPct > 0 ? "var(--bad)" : "var(--good)"}">${dPct > 0 ? "+" : "−"}${Math.abs(dPct).toFixed(0)}%</b> respecto a`;
+  const cmp = (media && total)
+    ? `<div class="adj">Tu renta de <b>${eur(total)} €/mes</b> es ${dTxt}
+       la media de ${locales.length === 1 ? "esta referencia" : "estas " + locales.length + " referencias"}
+       (<b>${eur(media)} €/mes</b>). Son importes totales, no €/m²: sin la superficie de cada
+       local la comparación es solo orientativa.</div>`
+    : "";
+
+  return `
+  <div class="reales">
+    <div class="et">Alquileres reales pagados · tiendas Express · 09/2016</div>
+    ${calle.length ? `<div class="tsub">Coincidencia por calle</div>${calle.map(tiendaRow).join("")}` : ""}
+    ${zona.length ? `<div class="tsub">Otros inmuebles en ${zonaLabel}${zonaResto ? ` · ${zona.length} en total, se muestran los 3 más baratos y los 3 más caros` : ""}</div>${zonaVis.map(tiendaRow).join("")}` : ""}
+    ${zonaResto ? `<div class="tmore">y ${zonaResto} inmueble${zonaResto === 1 ? "" : "s"} más en el rango intermedio</div>` : ""}
+    ${cmp}
+    <div class="legend">
+      <span>Renta facturada + gastos repercutidos (comunidad, tasas, IBI, vados).</span>
+      <span style="color:var(--muted)">Fuente: fichero interno de datos económicos, septiembre 2016.</span>
+    </div>
   </div>`;
 }
 
@@ -377,9 +484,10 @@ function calcular() {
   const calleTxt  = document.getElementById("calle").value.trim();
 
   function showErr(t) { const e = document.getElementById("err"); e.textContent = t; e.style.display = "block"; }
-  if (!sel)        { showErr("Elige una ubicación de la lista (municipio o distrito)."); document.getElementById("loc").focus(); return; }
+  // La ubicación es opcional si se indica la calle: con la calle ya se pueden
+  // buscar alquileres reales del fichero y oferta en Idealista.
+  if (!sel && !calleTxt) { showErr("Indica al menos la calle, o elige una ubicación de la lista."); document.getElementById("calle").focus(); return; }
   if (!(m2 > 0))   { showErr("Introduce los metros cuadrados del local (ej. 450).");    document.getElementById("m2").focus();  return; }
-  if (!calleTxt)   { showErr("Introduce o busca la calle del local.");                  document.getElementById("calle").focus(); return; }
   if (!(rentVal > 0)) { showErr("Introduce la renta que te piden (ej. 3.500).");        document.getElementById("rent").focus(); return; }
 
   const unitMode = document.getElementById("mUnit").classList.contains("on");
@@ -387,9 +495,42 @@ function calcular() {
   const total = unitMode ? rentVal * m2 : rentVal;
   const anual = total * 12;
   const { range, inside } = pickRange(m2);
-  const base  = sel[range.key];
+  const base  = sel ? sel[range.key] : null;
   const esf   = esfuerzoBlock(total);
+  const reales = tiendasBlock(calleTxt, sel, total);
   const result = document.getElementById("result");
+
+  // Solo calle, sin ubicación: no hay referencia de distrito del fichero 2009
+  if (!sel) {
+    result.innerHTML = `
+      <div class="verdict" style="border-color:var(--line)">
+        <span class="tag">${calleTxt} · ${range.label}</span>
+        <h2 style="color:var(--soft)">Sin distrito, sin comparativa de mercado</h2>
+        <p>Para comparar con el precio medio del fichero necesito el municipio o distrito.
+           Mientras tanto, aquí tienes tu renta, los alquileres reales que casan con esa calle
+           y la oferta actual en Idealista.</p>
+      </div>
+      <div class="pricebox">
+        <div class="pb">
+          <div class="k">Tu renta</div>
+          <div class="big">${eur2(unit)}<small> €/m²/mes</small></div>
+          <div class="src">${eur(total)} €/mes · <b style="color:var(--text)">${eur(anual)} €/año</b> · ${eur(m2)} m²</div>
+        </div>
+        <div class="pb live">
+          <div>
+            <div class="k">Precio medio de la zona</div>
+            <div class="big" style="color:var(--idealista)">en vivo</div>
+            <div class="src">Añade el municipio o distrito para la comparativa completa</div>
+          </div>
+        </div>
+      </div>
+      ${reales}
+      ${esf}
+      ${ideaBlock(null, calleTxt)}`;
+    result.style.display = "block";
+    result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
 
   // Municipio sin datos de precio
   if (!sel.hasData || !base) {
@@ -414,6 +555,7 @@ function calcular() {
           <a href="${sel.idealista}" target="_blank" rel="noopener">Ver precio medio en Idealista →</a>
         </div>
       </div>
+      ${reales}
       ${esf}
       ${ideaBlock(sel, calleTxt)}`;
     result.style.display = "block";
@@ -481,6 +623,7 @@ function calcular() {
       <div class="stat"><div class="k">Esperable (media)</div><div class="v">${eur(expMed)}<small> €/mes</small></div></div>
       <div class="stat"><div class="k">Diferencia</div><div class="v" style="color:${diff > 0 ? "var(--bad)" : "var(--good)"}">${diff > 0 ? "+" : ""}${eur(diff)}<small> €/mes</small></div></div>
     </div>
+    ${reales}
     ${esf}
     ${ideaBlock(sel, calleTxt)}
     ${rangeNote}`;
