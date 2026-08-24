@@ -344,6 +344,7 @@ function geolocate() {
   }
 
   btn.classList.add("loading");
+  btn.disabled = true;
   gh.textContent = "Buscando tu ubicación…";
 
   navigator.geolocation.getCurrentPosition(async pos => {
@@ -374,9 +375,11 @@ function geolocate() {
       gh.textContent = "No pude consultar tu dirección (sin conexión o el servicio no responde). Busca a mano.";
     } finally {
       btn.classList.remove("loading");
+      btn.disabled = false;
     }
   }, err => {
     btn.classList.remove("loading");
+    btn.disabled = false;
     gh.textContent = err.code === err.PERMISSION_DENIED
       ? "Has bloqueado el acceso a tu ubicación. Actívalo en los permisos del navegador."
       : "No pude obtener tu ubicación (GPS no disponible).";
