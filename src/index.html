@@ -119,6 +119,107 @@
 
 <!-- Resultado -->
 <div id="result"></div>
+
+<!-- Criterios: de qué depende el precio del alquiler -->
+<details class="crit">
+  <summary>¿De qué depende el precio de un alquiler? · criterios que usa esta app</summary>
+  <div class="critbody">
+
+    <p class="cintro">El alquiler de un local no sale de una fórmula única: es un precio por metro
+    cuadrado que se va ajustando por cuatro cosas. Estas son, en orden de cuánto pesan.</p>
+
+    <div class="cstep">
+      <div class="cnum">1</div>
+      <div>
+        <b>La ciudad o el distrito</b> — es el punto de partida.
+        Cada zona tiene su precio medio en <b>€/m² al mes</b>, y va de unos <b>6 €/m²</b>
+        en las zonas secundarias a casi <b>40 €/m²</b> en los ejes prime.
+        <span class="cnota">Ojo con dar por hecho que Madrid es lo más caro: en este fichero
+        los ejes prime más caros son <b>Bilbao (39,70)</b>, <b>San Sebastián (39,24)</b> y
+        <b>Valencia (38,28)</b>, por delante de Madrid Centro (33,12) y de Ciutat Vella
+        en Barcelona (25,50). De aquí sale el "precio medio de referencia" del resultado.</span>
+      </div>
+    </div>
+
+    <div class="cstep">
+      <div class="cnum">2</div>
+      <div>
+        <b>La zona dentro de la ciudad: A1 o A2</b> — muchas ciudades vienen partidas en dos.
+        <b>A1</b> es el eje comercial principal; <b>A2</b>, el resto.
+        La diferencia es enorme: en Albacete son <b>29,41 €/m²</b> en A1 frente a <b>8,50 €/m²</b> en A2,
+        <b>3,5 veces más</b>. Por eso la app te pide confirmar la zona al elegir la ciudad.
+      </div>
+    </div>
+
+    <div class="cstep">
+      <div class="cnum">3</div>
+      <div>
+        <b>La calle concreta</b> — dentro de un mismo distrito, no vale lo mismo la calle
+        con más paso que una travesía. Se aplica un multiplicador sobre el precio de la zona:
+        <div class="ctable">
+          <div><span>Eje prime, primera línea</span><b>×2,2</b></div>
+          <div><span>Calle comercial principal</span><b>×1,4</b></div>
+          <div><span>Calle media (referencia)</span><b>×1,0</b></div>
+          <div><span>Calle secundaria, poco tránsito</span><b>×0,65</b></div>
+        </div>
+        <span class="cnota">Del ×0,65 al ×2,2 hay más del triple. Es el criterio que más se te puede
+        escapar, porque lo eliges tú.</span>
+      </div>
+    </div>
+
+    <div class="cstep">
+      <div class="cnum">4</div>
+      <div>
+        <b>Los metros del local</b> — cuanto más grande, <b>menos</b> se paga por metro.
+        Un local grande es más difícil de alquilar, así que el propietario baja el precio unitario.
+        Tomando como base un local de 300–600 m²:
+        <div class="ctable">
+          <div><span>300 – 600 m²</span><b>referencia</b></div>
+          <div><span>1.000 – 1.400 m²</span><b>−24%</b></div>
+          <div><span>1.400 – 1.800 m²</span><b>−35%</b></div>
+          <div><span>1.800 – 2.200 m²</span><b>−47%</b></div>
+        </div>
+        <span class="cnota">Son las medianas reales de las 175 ubicaciones del fichero.</span>
+      </div>
+    </div>
+
+    <p class="csub">Un ejemplo entero</p>
+    <div class="cex">
+      <div><span>Local en Centro (Madrid), 450 m²</span></div>
+      <div><span>Precio de la zona</span><b>33,12 €/m²/mes</b></div>
+      <div><span>Calle media, sin ajuste (×1,0)</span><b>33,12 €/m²/mes</b></div>
+      <div><span>× 450 m²</span><b>14.904 €/mes</b></div>
+      <div class="cexr"><span>Si fuera un eje prime (×2,2)</span><b>32.789 €/mes</b></div>
+    </div>
+
+    <p class="csub">Cómo se juzga tu renta</p>
+    <p>Cada zona no tiene un precio único sino una <b>horquilla</b> (mínimo, medio y máximo),
+    de en torno a un ±6% alrededor del medio. Según dónde caiga tu renta:</p>
+    <div class="ctable">
+      <div><span>Por debajo del mínimo</span><b>Por debajo de mercado</b></div>
+      <div><span>Entre el mínimo y el medio</span><b>Buen precio</b></div>
+      <div><span>Entre el medio y el máximo</span><b>En mercado</b></div>
+      <div><span>Por encima del máximo</span><b>Por encima de mercado</b></div>
+    </div>
+
+    <p class="csub">Y dos comprobaciones más</p>
+    <p><b>¿Lo pueden pagar las ventas?</b> La <b>tasa de esfuerzo</b> compara la renta mensual con
+    lo que vende la tienda en un día. Por debajo del 50% es óptimo; entre 50% y 80%, viable;
+    por encima del 80%, riesgo.</p>
+    <p><b>¿Y si lo que tengo es el precio de venta?</b> Se aplica la <b>rentabilidad</b> que espera
+    un propietario (el fichero la fija entre 7,00% y 7,75% según la ciudad): un local de 2.100.000 €
+    al 7% son 147.000 € al año, es decir 12.250 € al mes.</p>
+
+    <p class="cwarn"><b>Lo que esta app no puede decirte.</b>
+    Los precios de referencia son de <b>2009</b>: sirven para comparar zonas entre sí, no como precio
+    de hoy — por eso siempre tienes al lado el enlace a Idealista.
+    El multiplicador de calle es un criterio de mercado, <b>no un precio medido calle a calle</b>.
+    Y los alquileres reales de las tiendas son importes totales de 09/2016, sin superficie,
+    así que no se pueden convertir a €/m².</p>
+
+  </div>
+</details>
+
 <p class="foot" id="src"><!-- INJECT:FOOTER --></p>
 </div>
 

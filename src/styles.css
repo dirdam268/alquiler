@@ -311,4 +311,69 @@ input:focus, select:focus {
   background: var(--well); border: 1px solid var(--line);
   border-left: 3px solid var(--accent); padding: 11px 13px; border-radius: 8px;
 }
+/* ── criterios del alquiler (desplegable) ── */
+.crit {
+  margin-top: 18px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--r);
+}
+.crit > summary {
+  cursor: pointer; padding: 16px 18px; font-size: 14.5px; font-weight: 740;
+  color: var(--text); list-style: none; display: flex; align-items: center; gap: 10px;
+}
+.crit > summary::-webkit-details-marker { display: none; }
+.crit > summary::before {
+  content: "▸"; color: var(--accent-ink); font-size: 13px;
+  transition: transform .15s ease; flex: 0 0 auto;
+}
+.crit[open] > summary::before { transform: rotate(90deg); }
+.crit > summary:hover { color: var(--accent-ink); }
+.critbody { padding: 0 18px 18px; border-top: 1px solid var(--line2); }
+.critbody p { font-size: 13.5px; color: var(--soft); line-height: 1.55; margin: 12px 0 0; }
+.critbody b { color: var(--text); }
+.cintro { margin-top: 14px !important; }
+.csub {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted);
+  margin: 22px 0 0 !important; padding-top: 14px; border-top: 1px solid var(--line2);
+}
+
+.cstep { display: flex; gap: 12px; margin-top: 16px; font-size: 13.5px; color: var(--soft); line-height: 1.55; }
+.cnum {
+  flex: 0 0 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: #3b2a06;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px;
+}
+.cnota { display: block; margin-top: 5px; font-size: 12px; color: var(--muted); }
+
+.ctable { margin-top: 9px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.ctable > div {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 8px 12px; font-size: 12.5px; background: var(--well);
+  border-bottom: 1px solid var(--line2);
+}
+.ctable > div:last-child { border-bottom: none; }
+.ctable > div > span { color: var(--soft); }
+.ctable > div > b { font-family: var(--mono); color: var(--text); white-space: nowrap; }
+
+.cex { margin-top: 9px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.cex > div {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 9px 12px; font-size: 12.5px; background: var(--well);
+  border-bottom: 1px solid var(--line2);
+}
+.cex > div:last-child { border-bottom: none; }
+.cex > div > span { color: var(--soft); }
+.cex > div > b { font-family: var(--mono); font-weight: 780; color: var(--text); white-space: nowrap; }
+.cex .cexr { background: rgba(242,172,44,.12); }
+
+.cwarn {
+  margin-top: 20px !important; font-size: 12.5px; line-height: 1.55;
+  background: var(--well); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent); padding: 12px 14px; border-radius: 8px;
+}
+@media (max-width: 560px) {
+  .ctable > div, .cex > div { flex-direction: column; align-items: flex-start; gap: 2px; }
+}
+
 .foot { margin-top: 30px; font-size: 12px; color: var(--muted); line-height: 1.6; }
