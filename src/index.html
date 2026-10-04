@@ -19,8 +19,35 @@
 <header>
   <p class="eyebrow">Alquiler · local comercial · €/m²/mes · tasa de esfuerzo</p>
   <h1>¿Está bien ese alquiler?</h1>
-  <p class="sub">Ubicación, calle, metros y renta: comparo con el mercado del distrito y con los alquileres realmente pagados en las tiendas Express. Si añades la cifra de ventas, calculo la tasa de esfuerzo (Óptimo / Viable / Riesgo) con tu metodología.</p>
+  <p class="sub">Tres herramientas, cada una con su color: <b class="tag-rent">rentabilidad</b> (de precio de venta a renta),
+  <b class="tag-alq">alquiler</b> (comparo la renta con el mercado y con los alquileres reales de las tiendas)
+  y <b class="tag-cta">cuenta de explotación</b> (si la tienda da para pagarlo).</p>
 </header>
+
+<!-- ═══════════ 1 · RENTABILIDAD ═══════════ -->
+<section class="sec sec-rent">
+<div class="sechead"><span class="secnum">1</span><div><b>Rentabilidad</b><span>De precio de venta a renta</span></div></div>
+<div class="card">
+  <p class="cardtitle">¿Tienes el precio de venta del local?</p>
+  <p class="cardsub">Calculo la renta anual y mensual equivalente a la rentabilidad que quieras aplicar.</p>
+  <div class="row2">
+    <div>
+      <label for="ventaPrecio">Precio de venta del local (€)</label>
+      <input id="ventaPrecio" type="text" inputmode="decimal" placeholder="Ej. 2.100.000"/>
+    </div>
+    <div>
+      <label for="rentabPct">Rentabilidad objetivo (%)</label>
+      <input id="rentabPct" type="text" inputmode="decimal" placeholder="Ej. 5" value="5"/>
+    </div>
+  </div>
+  <div class="hint" id="yieldNota"></div>
+  <div id="yieldOut"></div>
+</div>
+</section>
+
+<!-- ═══════════ 2 · ALQUILER ═══════════ -->
+<section class="sec sec-alq">
+<div class="sechead"><span class="secnum">2</span><div><b>Alquiler</b><span>¿Está bien la renta que te piden?</span></div></div>
 
 <!-- Fila 1: Ubicación + m² -->
 <div class="grid">
@@ -63,31 +90,15 @@
   </div>
 </div>
 
-<!-- Fila 3: Renta + Ventas -->
-<div class="grid">
-  <div class="card">
-    <label>Renta que te piden</label>
-    <div class="seg" style="margin-bottom:11px">
-      <button id="mTotal" class="on" type="button">Total al mes (€)</button>
-      <button id="mUnit" type="button">Por m² al mes (€/m²)</button>
-    </div>
-    <input id="rent" type="text" inputmode="decimal" placeholder="Ej. 3.500"/>
+<!-- Fila 3: Renta -->
+<div class="card" style="margin-top:14px">
+  <label>Renta que te piden</label>
+  <div class="seg" style="margin-bottom:11px">
+    <button id="mTotal" class="on" type="button">Total al mes (€)</button>
+    <button id="mUnit" type="button">Por m² al mes (€/m²)</button>
   </div>
-  <div class="card">
-    <label for="ventas">Cifra de ventas anual del establecimiento (opcional)</label>
-    <input id="ventas" type="text" inputmode="decimal" placeholder="Ej. 1.500.000"/>
-    <div class="row2">
-      <div class="seg sm">
-        <button id="ivaSi" class="on" type="button">Con IVA</button>
-        <button id="ivaNo" type="button">Sin IVA (neta)</button>
-      </div>
-      <div class="seg sm">
-        <button id="domNo" class="on" type="button">Cerrado domingos</button>
-        <button id="domSi" type="button">Abre domingos</button>
-      </div>
-    </div>
-    <div class="coefnote">Para calcular la tasa de esfuerzo (renta vs ventas).</div>
-  </div>
+  <input id="rent" type="text" inputmode="decimal" placeholder="Ej. 3.500"/>
+  <div class="coefnote">Esta renta es también la que usa la cuenta de explotación (sección 3).</div>
 </div>
 
 <!-- CTA -->
@@ -99,26 +110,37 @@
   <div class="err" id="err"></div>
 </div>
 
-<!-- Calculadora: precio de venta -> renta objetivo -->
-<div class="card" style="margin-top:14px">
-  <p class="cardtitle">¿Tienes el precio de venta del local?</p>
-  <p class="cardsub">Calculo la renta anual y mensual equivalente a la rentabilidad que quieras aplicar.</p>
-  <div class="row2">
-    <div>
-      <label for="ventaPrecio">Precio de venta del local (€)</label>
-      <input id="ventaPrecio" type="text" inputmode="decimal" placeholder="Ej. 2.100.000"/>
-    </div>
-    <div>
-      <label for="rentabPct">Rentabilidad objetivo (%)</label>
-      <input id="rentabPct" type="text" inputmode="decimal" placeholder="Ej. 5" value="5"/>
-    </div>
-  </div>
-  <div class="hint" id="yieldNota"></div>
-  <div id="yieldOut"></div>
-</div>
-
 <!-- Resultado -->
 <div id="result"></div>
+</section>
+
+<!-- ═══════════ 3 · CUENTA DE EXPLOTACIÓN ═══════════ -->
+<section class="sec sec-cta">
+<div class="sechead"><span class="secnum">3</span><div><b>Cuenta de explotación</b><span>¿Da la tienda para pagar ese alquiler?</span></div></div>
+<div class="grid">
+  <div class="card">
+    <label for="ventas">Cifra de ventas anual del establecimiento</label>
+    <input id="ventas" type="text" inputmode="decimal" placeholder="Ej. 1.500.000"/>
+    <div class="row2">
+      <div class="seg sm">
+        <button id="ivaSi" class="on" type="button">Con IVA</button>
+        <button id="ivaNo" type="button">Sin IVA (neta)</button>
+      </div>
+      <div class="seg sm">
+        <button id="domNo" class="on" type="button">Cerrado domingos</button>
+        <button id="domSi" type="button">Abre domingos</button>
+      </div>
+    </div>
+    <div class="coefnote">Si la dejas vacía, la cuenta usa la venta del modelo para ese tamaño de tienda.</div>
+  </div>
+  <div class="card">
+    <label>Tamaño de tienda del modelo</label>
+    <div class="seg" id="escSeg"></div>
+    <div class="coefnote" id="escNota">Fija los márgenes, el personal, la energía y la inversión de la cuenta.</div>
+  </div>
+</div>
+<div id="cuentaOut"></div>
+</section>
 
 <!-- Criterios: de qué depende el precio del alquiler -->
 <details class="crit">
@@ -225,6 +247,7 @@
 
 <!-- INJECT:DATA -->
 <!-- INJECT:TIENDAS -->
+<!-- INJECT:CUENTA -->
 <!-- INJECT:JS -->
 <script>
 if ("serviceWorker" in navigator &&

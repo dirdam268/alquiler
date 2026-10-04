@@ -52,6 +52,35 @@ h1 {
 }
 .sub { color: var(--soft); font-size: 15px; max-width: 66ch; margin: 0; }
 
+/* ── secciones con color propio ──
+   Rentabilidad (verde azulado), Alquiler (ámbar, el acento de siempre) y Cuenta
+   de explotación (índigo). Cada sección define su color en --sec y lo heredan
+   los controles de dentro, para que se vea de un vistazo en qué parte estás. */
+.sec-rent { --sec: #0f766e; --sec-ink: #0f766e; --sec-tint: rgba(13,148,136,.075); --sec-line: rgba(13,148,136,.32); --sec-on: #fff; }
+.sec-alq  { --sec: #f2ac2c; --sec-ink: #9c6a07; --sec-tint: rgba(242,172,44,.08);  --sec-line: rgba(242,172,44,.42); --sec-on: #1a1304; }
+.sec-cta  { --sec: #4f46e5; --sec-ink: #4338ca; --sec-tint: rgba(99,102,241,.075); --sec-line: rgba(99,102,241,.32); --sec-on: #fff; }
+
+.sec {
+  margin-top: 18px; padding: 14px; border-radius: calc(var(--r) + 4px);
+  background: var(--sec-tint); border: 1px solid var(--sec-line);
+  border-top: 4px solid var(--sec);
+}
+.sechead { display: flex; align-items: center; gap: 11px; margin: 2px 2px 13px; }
+.secnum {
+  flex: 0 0 28px; height: 28px; border-radius: 50%;
+  background: var(--sec); color: var(--sec-on);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;
+}
+.sechead b { display: block; font-size: 15.5px; color: var(--sec-ink); letter-spacing: -.01em; }
+.sechead span:not(.secnum) { display: block; font-size: 12.5px; color: var(--soft); }
+.sec input:focus, .sec select:focus { border-color: var(--sec); box-shadow: 0 0 0 3px var(--sec-line); }
+.sec .seg button.on { background: var(--sec); color: var(--sec-on); }
+.sec .usebtn { color: var(--sec-ink); }
+.sec .usebtn:hover { border-color: var(--sec); }
+.sec .hint { color: var(--sec-ink); }
+.tag-rent { color: #0f766e; } .tag-alq { color: #9c6a07; } .tag-cta { color: #4338ca; }
+@media (max-width: 560px) { .sec { padding: 8px; } }
+
 /* ── layout ── */
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
@@ -311,6 +340,68 @@ input:focus, select:focus {
   background: var(--well); border: 1px solid var(--line);
   border-left: 3px solid var(--accent); padding: 11px 13px; border-radius: 8px;
 }
+/* ── cuenta de explotación ── */
+.cuenta {
+  margin-top: 14px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 18px;
+}
+.cuenta .ct-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cuenta .ct-tit { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.cuenta .ct-src { font-size: 11.5px; color: var(--muted); }
+
+.ct-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+@media (max-width: 640px) { .ct-kpis { grid-template-columns: 1fr; } }
+.ct-kpi { background: var(--well); border: 1px solid var(--line); border-radius: 11px; padding: 12px 13px; }
+.ct-kpi .k { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 4px; }
+.ct-kpi .v { font-size: 21px; font-weight: 780; font-family: var(--mono); line-height: 1.1; }
+.ct-kpi .v small { font-size: 11px; color: var(--muted); font-weight: 400; }
+.ct-kpi .s { font-size: 11.5px; color: var(--soft); margin-top: 4px; }
+
+.ct-inputs { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--soft); }
+.ct-inputs b { color: var(--text); font-family: var(--mono); }
+.ct-inputs .orig { font-size: 11px; color: var(--muted); }
+
+.ct-table { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.ct-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 112px 112px; gap: 8px;
+  align-items: center; padding: 7px 12px; font-size: 12.5px;
+  border-bottom: 1px solid var(--line2);
+}
+.ct-row:last-child { border-bottom: none; }
+.ct-row.hd { background: var(--well); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+.ct-row.hd .n { white-space: normal; line-height: 1.25; }
+#escSeg button { line-height: 1.2; }
+#escSeg button small { display: block; font-size: 11px; font-weight: 600; opacity: .8; }
+.ct-row .c { color: var(--soft); min-width: 0; }
+.ct-row .n { text-align: right; font-family: var(--mono); color: var(--text); white-space: nowrap; }
+.ct-row .n small { display: block; font-size: 10.5px; color: var(--muted); }
+.ct-row.sub { background: var(--well); }
+.ct-row.sub .c { color: var(--text); font-weight: 700; }
+.ct-row.sub .n { font-weight: 700; }
+.ct-row.tot { background: var(--sec-tint, var(--well)); }
+.ct-row.tot .c { color: var(--text); font-weight: 800; text-transform: uppercase; letter-spacing: .02em; }
+.ct-row.tot .n { font-weight: 800; font-size: 13.5px; }
+.ct-row.det .c { padding-left: 12px; }
+.ct-row .neg { color: var(--bad); }
+.ct-row .pos { color: var(--good); }
+.ct-row .tagi {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; vertical-align: 1px;
+  background: var(--sec, var(--accent)); color: var(--sec-on, #1a1304);
+}
+.ct-row .tagf { background: var(--line); color: var(--soft); }
+@media (max-width: 560px) {
+  /* En el móvil se aprieta el margen para dejarle sitio al concepto */
+  .cuenta { padding: 10px; }
+  .ct-row { grid-template-columns: minmax(0, 1fr) 76px 76px; padding: 7px 8px; font-size: 11.5px; gap: 5px; }
+  .ct-row .n { font-size: 11px; }
+  .ct-row .n small { font-size: 9.5px; }
+  .ct-row.tot .n { font-size: 11.5px; }
+  .ct-row .tagi { display: block; width: max-content; margin: 3px 0 0; }
+}
+.ct-notes { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.55; }
+.ct-notes b { color: var(--soft); }
+
 /* ── criterios del alquiler (desplegable) ── */
 .crit {
   margin-top: 18px; background: var(--panel);

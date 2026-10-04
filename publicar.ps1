@@ -26,6 +26,18 @@ if (Test-Path $xlsx) {
   }
 }
 
+# 1b) Modelo de cuenta de explotacion (busca el xlsx por patron en Descargas)
+$modelo = Get-ChildItem (Join-Path $env:USERPROFILE "Downloads") -Filter "Modelo cuenta*franquicia*.xlsx" -ErrorAction SilentlyContinue |
+          Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($modelo) {
+  Write-Host "      Extrayendo el modelo de cuenta: $($modelo.Name)"
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "scripts\build_cuenta.ps1") -Xlsx $modelo.FullName
+} elseif (Test-Path (Join-Path $root "src\cuenta.json")) {
+  Write-Host "      Uso el src\cuenta.json ya generado (no encuentro el modelo de cuenta)." -ForegroundColor Yellow
+} else {
+  Write-Host "      Sin modelo de cuenta: esa seccion saldra vacia." -ForegroundColor Yellow
+}
+
 # 2) App en claro (queda en build\, no se publica)
 Write-Host "[2/3] Compilando la app..."
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "scripts\build.ps1")

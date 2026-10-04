@@ -1,6 +1,8 @@
 # --- Datos internos: NUNCA se publican -------------------------------------
 # Alquileres realmente pagados en las tiendas (fichero economico interno).
 src/tiendas.json
+# Hipotesis del modelo de cuenta de explotacion (margenes, personal...).
+src/cuenta.json
 sources/
 
 # App en claro generada por scripts\build.ps1. El fichero que se publica es

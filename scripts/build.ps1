@@ -22,6 +22,16 @@ $data = [IO.File]::ReadAllText((Join-Path $src "precios.json")).Trim()
 $tien = [IO.File]::ReadAllText((Join-Path $src "tiendas.json")).Trim()
 $tmpl = [IO.File]::ReadAllText((Join-Path $src "index.html"))
 
+# Modelo de cuenta de explotacion (dato interno, lo genera build_cuenta.ps1).
+# Si falta, la app se compila igual y la seccion de cuenta avisa en vez de romperse.
+$cuentaPath = Join-Path $src "cuenta.json"
+if (Test-Path $cuentaPath) {
+  $cuen = [IO.File]::ReadAllText($cuentaPath).Trim()
+} else {
+  Write-Warning "Falta src\cuenta.json (ejecuta scripts\build_cuenta.ps1): la cuenta de explotacion saldra vacia."
+  $cuen = "null"
+}
+
 # Recuento para el pie (municipios de Madrid en el dataset)
 $json  = $data | ConvertFrom-Json
 $nMad  = @($json | Where-Object { $_.provincia -eq "Madrid" -and $_.tipo -eq "municipio" }).Count
@@ -45,6 +55,7 @@ $html = $tmpl.
     Replace("<!-- INJECT:CSS -->",     "<style>`n$css`n</style>").
     Replace("<!-- INJECT:DATA -->",    "<script>`nwindow.DATA = $data;`n</script>").
     Replace("<!-- INJECT:TIENDAS -->", "<script>`nwindow.TIENDAS = $tien;`n</script>").
+    Replace("<!-- INJECT:CUENTA -->",  "<script>`nwindow.CUENTA = $cuen;`n</script>").
     Replace("<!-- INJECT:JS -->",      "<script>`n$js`n</script>").
     Replace("<!-- INJECT:FOOTER -->",  $footer)
 

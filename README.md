@@ -62,6 +62,10 @@ Datos economicos tiendas Express.xlsx   (fichero interno, fuera del repo)
         ↓  build_tiendas.ps1
     src/tiendas.json          ← DATOS INTERNOS, en .gitignore
 
+Modelo de cuenta (xlsx interno, en Descargas)
+        ↓  build_cuenta.ps1
+    src/cuenta.json           ← DATOS INTERNOS, en .gitignore
+
         ↓  build.ps1  (+ src/styles.css + src/app.js + src/index.html + pwa/*)
     build/index.html          ← app EN CLARO, en .gitignore
 
@@ -156,6 +160,28 @@ Valoración:
   50% – 80%     → Viable
   < 50%         → Óptimo
 ```
+
+### Cuenta de explotación (sección 3)
+
+Fuente: modelo de cuenta de franquicia en xlsx (fichero interno, fuera del repo).
+`scripts/build_cuenta.ps1` lee **solo las hipótesis** (márgenes, merma, personal,
+energía, inversión, renting, préstamo, impuestos, crecimientos) y genera
+`src/cuenta.json` (en `.gitignore`). `app.js` reproduce las fórmulas del Excel
+para recalcular con la **venta** de la sección 3 y la **renta** de la sección 2;
+si alguna falta, usa la del modelo y lo indica.
+
+- Tres tramos del modelo (125 / 150 / 175 m² de sala) que fijan márgenes,
+  personal, energía e inversión.
+- **Gastos de personal: fijos**, los del modelo para el tramo elegido; no se
+  recalculan con la venta. En la proyección suben con el IPC, como en el Excel.
+- Año 1 y **media de los 10 primeros años** (ventas +10 / +7 / +4 % y después
+  IPC; renting 8 años; préstamo de obras con carencia; IS sobre beneficio positivo).
+- **Alquiler máximo del año 1** = renta con la que el resultado antes de
+  impuestos es cero.
+- Verificado contra el propio Excel: las 168 cifras (28 líneas × 2 hojas × 3
+  tramos) coinciden con diferencias de redondeo inferiores a 0,01 €.
+
+La tasa de esfuerzo se movió a esta sección, junto a la cifra de ventas.
 
 ### Alquileres reales pagados (tiendas Express)
 
