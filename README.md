@@ -154,12 +154,22 @@ Venta media diaria = CVN / días_año
   - Cierra domingos: 308 días
 
 Tasa de esfuerzo = Renta mensual / Venta media diaria
-
-Valoración:
-  > 80%         → Riesgo
-  50% – 80%     → Viable
-  < 50%         → Óptimo
 ```
+
+> Desde octubre de 2026 la tasa de esfuerzo es solo un **dato informativo**: sus umbrales
+> (>80% Riesgo, 50-80% Viable, <50% Óptimo) daban "Riesgo" en casos que la cuenta de
+> explotación del propio modelo da como rentables. La marca **Óptimo / Viable / Riesgo**
+> sale ahora de la cuenta, con el resultado antes de impuestos:
+>
+> | Marca | Condición |
+> |---|---|
+> | Óptimo | gana desde el año 1 |
+> | Viable | pierde el año 1 pero gana de media en los 10 años |
+> | Riesgo | no gana ni el año 1 ni de media en los 10 años |
+>
+> Junto a los campos de venta y de renta se calculan la **venta mínima** y el **alquiler
+> máximo** con los que el resultado antes de impuestos es cero (la cuenta es lineal en ambos,
+> así que se despeja exacto).
 
 ### Cuenta de explotación (sección 3)
 

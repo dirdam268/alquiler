@@ -12,8 +12,6 @@
 const IVA_DIV   = 1.104;  // divisor para pasar CVB → CVN
 const DIAS_DOM  = 350;    // días de venta/año con apertura domingos
 const DIAS_NODOM= 308;    // días de venta/año sin domingos
-const TE_RIESGO = 0.80;   // umbral superior tasa de esfuerzo
-const TE_OPTIMO = 0.50;   // umbral inferior tasa de esfuerzo
 
 // ── Calles prime conocidas: nombre, coeficiente, descripción ─────────────────
 // Cobertura limitada y manual (sin fuente de precios por calle real).
@@ -204,21 +202,6 @@ function setSelected(d) {
   document.getElementById("sugg").classList.remove("open");
   renderZonaAviso(d);
   aplicarYield(d);
-  actualizarIdeaLink(d);
-  renderRiesgo();
-}
-
-/** Enlace "ver en Idealista" junto al campo del precio, para la zona elegida. */
-function actualizarIdeaLink(d) {
-  const a = document.getElementById("ideaLink");
-  if (!a) return;
-  if (d && d.idealista) {
-    a.href = d.idealista;
-    a.textContent = "Ver el precio medio de " + clean(d.localizacion) + " en Idealista →";
-    a.style.display = "inline-block";
-  } else {
-    a.style.display = "none";
-  }
 }
 
 function renderSugg(list) {
@@ -328,7 +311,6 @@ function setSelectedCalle(s) {
     : base;
   hint.classList.add("show");
   document.getElementById("suggCalle").classList.remove("open");
-  renderRiesgo();   // el eje cambia por código: no salta el evento "change"
 }
 
 function renderSuggCalle(list) {
@@ -532,18 +514,15 @@ function esfuerzoBlock(rentMonthly) {
   const rentAnnual   = rentMonthly * 12;
   const te           = rentMonthly / ventaDiaria;
   const pctVtaNeta   = rentAnnual / cvn;
-  let val, col;
-  if      (te > TE_RIESGO) { val = "Riesgo"; col = "var(--bad)"; }
-  else if (te < TE_OPTIMO) { val = "Óptimo"; col = "var(--good)"; }
-  else                      { val = "Viable"; col = "var(--ok)"; }
+  // Dato informativo de la tabla de cálculo: ya NO decide el riesgo (eso sale de
+  // la cuenta de explotación), así que va en neutro, sin etiqueta ni umbrales.
   return `
-  <div class="esf" style="border-color:${col}">
+  <div class="esf">
     <div class="eh">
       <div>
         <div class="et">Tasa de esfuerzo · renta mensual / venta media diaria</div>
-        <div class="ebig" style="color:${col}">${pct1(te)}</div>
+        <div class="ebig">${pct1(te)}</div>
       </div>
-      <div class="eval" style="background:${col};color:var(--text)">${val}</div>
     </div>
     <div class="stats">
       <div class="stat"><div class="k">Renta anual</div><div class="v">${eur(rentAnnual)}<small> €</small></div></div>
@@ -558,10 +537,7 @@ function esfuerzoBlock(rentMonthly) {
       <div class="stat"><div class="k">Equivale a</div><div class="v" style="font-size:15px">${te.toLocaleString("es-ES", { maximumFractionDigits: 2 })}<small> días vta/mes</small></div></div>
     </div>
     <div class="legend">
-      <span><b style="color:var(--good)">&lt;50%</b> Óptimo</span>
-      <span><b style="color:var(--ok)">50–80%</b> Viable</span>
-      <span><b style="color:var(--bad)">&gt;80%</b> Riesgo</span>
-      <span style="color:var(--muted)">Metodología: Tabla cálculo renta locales</span>
+      <span style="color:var(--muted)">Dato informativo (Tabla cálculo renta locales). El riesgo se marca con la cuenta de explotación.</span>
     </div>
   </div>`;
 }
@@ -847,7 +823,10 @@ function renderSugerencias(Ct) {
     const txt = ok ? `te quedan ${eur(max - rentMes)} €/mes de margen` : `te pasas ${eur(rentMes - max)} €/mes`;
     return `<div>${etq}: <b>${eur(max)} €/mes</b>${porM2(max)} · <span style="color:${ver({ t: ok ? "ok" : "mal" })}">${txt}</span></div>`;
   };
-  rBox.innerHTML = `<div class="sug-tit">Alquiler máximo para no perder</div>`
+  const M = rentTuya ? marcaRiesgo(Ct) : null;
+  const pill = M ? `<span class="rk-pill" style="background:${M.c}">${M.t}</span>` : "";
+  rBox.innerHTML = `<div class="sug-tit">Alquiler máximo para no perder ${pill}</div>`
+    + (M ? `<div class="rk-txt">${M.texto}</div>` : "")
     + filaR("Año 1", rentMax1)
     + filaR("Media 10 años", rentMax10)
     + `<div class="sug-foot">Con una venta de ${eur(ventaTuya ? Ct.vIn : P.gross_sales)} € ${ventaTuya ? (conIVA ? "con IVA" : "sin IVA") + " (la tuya)" : "con IVA (la del modelo)"}.</div>`;
@@ -858,7 +837,6 @@ function renderCuenta() {
   if (!out) return;
   const nota = document.getElementById("escNota");
   const Ct = cuentaActual();
-  renderRiesgo(Ct);
   renderSugerencias(Ct);
   if (!Ct) {
     out.innerHTML = `<div class="note">No está cargado el modelo de cuenta de explotación.</div>`;
@@ -886,7 +864,12 @@ function renderCuenta() {
   const pctAlq = -a1.alquiler / a1.ventas;
   const vColor = n => n < 0 ? "var(--bad)" : "var(--good)";
 
+  const M = rentTuya ? marcaRiesgo(Ct) : null;
   out.innerHTML = `
+    ${M ? `<div class="rk-banner" style="border-color:${M.c}">
+      <span class="rk-pill rk-big" style="background:${M.c}">${M.t}</span>
+      <div class="rk-txt">${M.texto}<span class="rk-src">Según la cuenta de explotación (resultado antes de impuestos).</span></div>
+    </div>` : ""}
     ${esfuerzoBlock(rentMes)}
     <div class="cuenta">
       <div class="ct-head">
@@ -931,107 +914,30 @@ function renderCuenta() {
     </div>`;
 }
 
-// ── Marca de riesgo del alquiler: cuenta + mercado ───────────────────────────
-// Sustituye a la tasa de esfuerzo como marca de riesgo (se contradecía con la
-// cuenta del modelo). Dos lecturas y gana la más desfavorable:
-//   · cuenta  → Óptimo si gana el año 1 y en la media de 10 años; Viable si
-//               solo en una de las dos; Riesgo si en ninguna.
-//   · mercado → contra el €/m² de Idealista que escriba el usuario (la app no
-//               puede leer Idealista) o, si no hay, contra el fichero de
-//               referencia: Óptimo ≤ media; Viable ≤ máximo de la horquilla
-//               (o +10% sobre Idealista); Riesgo por encima.
+// ── Marca de riesgo del alquiler: sale de la cuenta de explotación ───────────
+// Sustituye a la que daba la tasa de esfuerzo (se contradecía con la cuenta del
+// modelo). Se mide con el resultado ANTES de impuestos, igual que las
+// sugerencias de venta mínima y alquiler máximo:
+//   · Óptimo → gana desde el año 1 (y, por tanto, también de media en 10 años)
+//   · Viable → pierde el año 1 pero gana de media en los 10 años
+//   · Riesgo → no gana ni el año 1 ni de media en los 10 años
 
 const NIVEL = [
   { t: "Óptimo", c: "var(--good)" },
   { t: "Viable", c: "var(--ok)" },
   { t: "Riesgo", c: "var(--bad)" },
 ];
-const IDEALISTA_MARGEN = 0.10;
 
-/** Comparación de la renta en €/m² con el mercado. */
-function mercadoActual() {
-  const v  = parseNum(document.getElementById("rent").value);
-  const m2 = parseNum(document.getElementById("m2").value);
-  const unitMode = document.getElementById("mUnit").classList.contains("on");
-  if (!(v > 0)) return null;
-  const unit = unitMode ? v : (m2 > 0 ? v / m2 : null);
-  if (!unit) return { nivel: null, texto: "Falta la superficie para pasar la renta a €/m²." };
-
-  const idea = parseNum(document.getElementById("ideaPrecio").value);
-  if (idea > 0) {
-    const d = unit / idea - 1;
-    const nivel = d <= 0 ? 0 : d <= IDEALISTA_MARGEN ? 1 : 2;
-    const dTxt = Math.abs(d) < 0.005 ? "lo mismo que" : (d > 0 ? "un " + pctC(d) + " más que" : "un " + pctC(-d) + " menos que");
-    return { nivel, fuente: "Idealista (precio que has escrito)",
-      texto: `Pagas <b>${eur2(unit)} €/m²</b>, ${dTxt} la media de Idealista (<b>${eur2(idea)} €/m²</b>).` };
-  }
-
-  const sel = selected;
-  if (sel && sel.hasData && m2 > 0) {
-    const { range } = pickRange(m2);
-    const base = sel[range.key];
-    if (base) {
-      const coef = parseFloat(document.getElementById("eje").value) || 1;
-      const medio = base.medio * coef, max = base.max * coef, min = base.min * coef;
-      const nivel = unit <= medio ? 0 : unit <= max ? 1 : 2;
-      return { nivel, fuente: "fichero de referencia 2009, ajustado a la calle",
-        texto: `Pagas <b>${eur2(unit)} €/m²</b>; para ${clean(sel.localizacion)} la media es <b>${eur2(medio)} €/m²</b>
-                (horquilla ${eur2(min)}–${eur2(max)}). Es un dato de 2009: escribe el de Idealista para afinar.` };
-    }
-  }
-  return { nivel: null, texto: "Sin referencia de mercado: escribe el precio medio de Idealista o elige una ubicación con precio." };
-}
-
-function renderRiesgo(Ct) {
-  const out = document.getElementById("riesgoOut");
-  if (!out) return;
-  const v = parseNum(document.getElementById("rent").value);
-  if (!(v > 0)) { out.innerHTML = ""; return; }
-  if (Ct === undefined) Ct = cuentaActual();
-
-  // Lectura según la cuenta
-  let nc = null, tc = "";
-  if (Ct && Ct.rentTuya) {
-    const g1 = Ct.rentMes <= Ct.rentMax1 + 0.5, g10 = Ct.rentMes <= Ct.rentMax10 + 0.5;
-    nc = g1 && g10 ? 0 : (g1 || g10) ? 1 : 2;
-    const m1 = Ct.rentMax1 > 0 ? eur(Ct.rentMax1) + " €/mes" : "0 €";
-    const m10 = Ct.rentMax10 > 0 ? eur(Ct.rentMax10) + " €/mes" : "0 €";
-    tc = nc === 0 ? `Con esta renta la tienda <b>gana desde el año 1</b>. Aguanta hasta ${m1} el año 1 y ${m10} de media en 10 años.`
-       : g10       ? `<b>El año 1 da pérdidas</b> (máximo ${m1}), pero en la media de 10 años gana (hasta ${m10}).`
-       : g1        ? `Gana el año 1 (hasta ${m1}) pero <b>no en la media de 10 años</b> (hasta ${m10}).`
-       :             `<b>No cubre gastos</b> ni el año 1 (máximo ${m1}) ni en la media de 10 años (máximo ${m10}).`;
-    tc += `<span class="rk-src">Tramo ${Ct.esc.nombre.toLowerCase()} · venta ${eur(Ct.ventaTuya ? Ct.vIn : Ct.P.gross_sales)} €
-           ${Ct.ventaTuya ? "(la tuya)" : "(del modelo: escribe la tuya en la sección 3)"}</span>`;
-  } else if (Ct && Ct.rp && Ct.rp.motivo) {
-    tc = Ct.rp.motivo;
-  } else if (!Ct) {
-    tc = "No está cargado el modelo de cuenta.";
-  }
-
-  // Lectura según el mercado
-  const M = mercadoActual();
-  const nm = M ? M.nivel : null;
-
-  const niveles = [nc, nm].filter(n => n !== null);
-  const total = niveles.length ? Math.max(...niveles) : null;
-  const pill = n => n === null
-    ? `<span class="rk-pill rk-na">sin dato</span>`
-    : `<span class="rk-pill" style="background:${NIVEL[n].c}">${NIVEL[n].t}</span>`;
-  const borde = total === null ? "var(--line)" : NIVEL[total].c;
-
-  out.innerHTML = `
-  <div class="riesgo" style="border-color:${borde}">
-    <div class="rk-head">
-      <div><div class="rk-tit">Riesgo del alquiler</div>
-        <div class="rk-sub">Pagas <b>${Ct && Ct.rentTuya ? eur(Ct.rentMes) + " €/mes"
-          : (document.getElementById("mUnit").classList.contains("on") ? eur2(v) + " €/m²/mes" : eur(v) + " €/mes")}</b></div></div>
-      ${total === null ? pill(null) : `<span class="rk-big" style="background:${NIVEL[total].c}">${NIVEL[total].t}</span>`}
-    </div>
-    <div class="rk-row"><div class="rk-lab">Según la cuenta de explotación ${pill(nc)}</div><div class="rk-txt">${tc}</div></div>
-    <div class="rk-row"><div class="rk-lab">Según el mercado ${pill(nm)}</div>
-      <div class="rk-txt">${M ? M.texto : ""}${M && M.fuente ? `<span class="rk-src">Fuente: ${M.fuente}</span>` : ""}</div></div>
-    <div class="rk-foot">Se marca la más desfavorable de las dos. La tasa de esfuerzo de la sección 3 se mantiene como dato de la tabla de cálculo, pero ya no decide el riesgo.</div>
-  </div>`;
+function marcaRiesgo(Ct) {
+  const g1  = Ct.rentMes <= Ct.rentMax1  + 0.5;
+  const g10 = Ct.rentMes <= Ct.rentMax10 + 0.5;
+  const nivel = g1 ? 0 : g10 ? 1 : 2;
+  const m1  = Ct.rentMax1  > 0 ? eur(Ct.rentMax1)  + " €/mes" : "0 €";
+  const m10 = Ct.rentMax10 > 0 ? eur(Ct.rentMax10) + " €/mes" : "0 €";
+  const texto = nivel === 0 ? `Con ${eur(Ct.rentMes)} €/mes la tienda <b>gana desde el año 1</b> (aguanta hasta ${m1}).`
+    : nivel === 1 ? `Con ${eur(Ct.rentMes)} €/mes <b>el año 1 da pérdidas</b> (el máximo es ${m1}), pero de media en 10 años gana (hasta ${m10}).`
+    :               `Con ${eur(Ct.rentMes)} €/mes <b>la tienda no gana</b> ni el año 1 (máximo ${m1}) ni de media en 10 años (máximo ${m10}).`;
+  return { ...NIVEL[nivel], nivel, texto };
 }
 
 // ── Cálculo principal ─────────────────────────────────────────────────────────

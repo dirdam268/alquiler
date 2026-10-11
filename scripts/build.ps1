@@ -46,7 +46,7 @@ $footer = "Referencia de mercado: Precios_de_Alquiler.xls (2009) - $nTot ubicaci
     "el resto enlazan a Idealista sin precio inventado). " +
     "Tasa de esfuerzo seg&#250;n Tabla_calculo_renta_locales.xlsx: ventas netas = ventas/1,104; " +
     "venta media diaria = netas/(350 si abre domingos, 308 si no); " +
-    "tasa = renta mensual / venta media diaria; &gt;80% Riesgo, 50-80% Viable, &lt;50% &#211;ptimo. " +
+    "tasa = renta mensual / venta media diaria (dato informativo; el riesgo lo marca la cuenta de explotaci&#243;n). " +
     "Alquileres reales: Datos economicos tiendas Express.xlsx (09/2016) - $nTien inmuebles, " +
     "renta + gastos repercutidos; el fichero no trae superficie, por eso no hay &#8364;/m&#178;. " +
     "El precio medio actual se consulta en Idealista. Orientativo, no es una tasaci&#243;n."
