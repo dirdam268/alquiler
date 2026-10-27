@@ -90,8 +90,8 @@
   </div>
 </div>
 
-<!-- Fila 3: Renta -->
-<div class="card" style="margin-top:14px">
+<!-- Fila 3: Renta (con fondo propio para que resalte) -->
+<div class="card rentcard" style="margin-top:14px">
   <label>Renta que te piden</label>
   <div class="seg" style="margin-bottom:11px">
     <button id="mTotal" class="on" type="button">Total al mes (€)</button>
@@ -136,12 +136,39 @@
     <div class="sug" id="ventaSug"></div>
   </div>
   <div class="card">
-    <label>Tamaño de tienda del modelo</label>
-    <div class="seg" id="escSeg"></div>
-    <div class="coefnote" id="escNota">Fija los márgenes, el personal, la energía y la inversión de la cuenta.</div>
+    <label>Gasto de personal</label>
+    <div class="seg sm">
+      <button id="persFijo" class="on" type="button">Fijo del tamaño</button>
+      <button id="persSigue" type="button">Sigue a la venta</button>
+    </div>
+    <div class="coefnote" id="persNota"></div>
   </div>
 </div>
+
+<!-- Datos del modelo, editables -->
+<details class="ced" id="cedEntrada" open>
+  <summary><span>Datos de entrada del tamaño</span><small>m², alquiler, equipamiento, obra y ventas</small><span id="cedEntradaSum"></span></summary>
+  <div class="cedbody" id="cedEntradaBody"></div>
+</details>
+<details class="ced" id="cedHip">
+  <summary><span>Hipótesis del modelo</span><small>márgenes, personal, gastos, financiación e IPC</small><span id="cedHipSum"></span></summary>
+  <div class="cedbody" id="cedHipBody"></div>
+</details>
+
 <div id="cuentaOut"></div>
+
+<details class="ced" id="cedProy">
+  <summary><span>Proyección año a año</span><small>los 10 primeros años, línea a línea</small></summary>
+  <div class="cedbody" id="cedProyBody"><p class="ced-intro">Abre este desplegable para ver la proyección.</p></div>
+</details>
+<details class="ced" id="cedCtl">
+  <summary><span>Controles automáticos</span><small>coherencia de los datos</small><span id="cedCtlSum"></span></summary>
+  <div class="cedbody" id="cedCtlBody"></div>
+</details>
+<details class="ced" id="cedGuia">
+  <summary><span>Guía, origen y cautelas</span><small>cómo se usa y qué no cubre</small></summary>
+  <div class="cedbody" id="cedGuiaBody"></div>
+</details>
 </section>
 
 <!-- Criterios: de qué depende el precio del alquiler -->

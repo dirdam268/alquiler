@@ -601,22 +601,87 @@ function calcYield() {
 }
 
 // ── Cuenta de explotación (window.CUENTA) ────────────────────────────────────
-// Las hipótesis (márgenes, personal, energía, inversión, financiación...) vienen
-// del modelo en xlsx vía scripts/build_cuenta.ps1. Aquí se reproducen sus
-// fórmulas para recalcular la cuenta con la venta y el alquiler del usuario.
+// Todo lo editable del modelo en xlsx (datos de entrada e hipótesis, por tamaño
+// de tienda) viene de scripts/build_cuenta.ps1 y se puede cambiar en pantalla:
+// los cambios se guardan en este dispositivo (localStorage) y un botón restaura
+// los valores del modelo. Aquí se reproducen las fórmulas del Excel; están
+// verificadas contra él con scripts/oraculo_cuenta.ps1, también con datos
+// distintos a los de partida.
 //
-// Criterio pedido: el gasto de personal es el del modelo para ese tamaño de
-// tienda y NO se recalcula con la venta que se escriba. En la proyección a 10
-// años solo sube con el IPC, igual que en el propio Excel.
+// Gasto de personal, dos modos (se elige en la sección 3):
+//   · "fijo" (por defecto, lo pedido): el del modelo para ese tamaño, calculado
+//     con la venta del propio tamaño; no cambia con la venta que escribas.
+//   · "sigue": como en el Excel, % de las ventas netas que se estén usando.
+// En los dos, de año 2 en adelante solo sube con el IPC, igual que en el Excel.
 
-let escId = "medio";
+// Se trabaja solo con el tamaño ALTO (lo pedido: una única columna en los datos de
+// entrada, en las hipótesis y en la cuenta). El modelo conserva los tres.
+const CT_VISIBLES = ["alto"];
+let escId = "alto";
+const ctTramos = () => (window.CUENTA && window.CUENTA.tramos ? window.CUENTA.tramos.filter(t => CT_VISIBLES.includes(t.id)) : []);
+const CT_LS = "alq_cuenta_v1";
+const CT = { valores: {}, defecto: {}, personalSigue: false };
+
+/** Todos los campos editables, en el orden del Excel. */
+function ctCampos() {
+  const C = window.CUENTA;
+  if (!C || !C.entrada || !C.hipotesis) return [];
+  return C.entrada.filas.concat(...C.hipotesis.map(b => b.filas));
+}
+
+function ctFirma(o) {
+  const s = JSON.stringify(o);
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return String(h);
+}
+
+const ctIgual = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
+
+/** Carga los valores del modelo y encima los cambios guardados en este dispositivo.
+ *  Si el modelo cambió desde que se guardaron (otra firma), se descartan. */
+function ctInit() {
+  const C = window.CUENTA;
+  CT.defecto = {}; CT.valores = {};
+  if (!C || !C.tramos) return;
+  for (const t of C.tramos) CT.defecto[t.id] = {};
+  for (const f of ctCampos()) for (const t of C.tramos) CT.defecto[t.id][f.key] = f.valores[t.id];
+  CT.valores = JSON.parse(JSON.stringify(CT.defecto));
+  try {
+    const s = JSON.parse(localStorage.getItem(CT_LS) || "null");
+    if (s) {
+      CT.personalSigue = !!s.personalSigue;
+      if (s.base === ctFirma(CT.defecto)) {
+        for (const id in (s.cambios || {})) for (const k in s.cambios[id]) {
+          if (CT.valores[id] && k in CT.valores[id] && isFinite(s.cambios[id][k])) CT.valores[id][k] = s.cambios[id][k];
+        }
+      }
+    }
+  } catch (e) { /* sin almacenamiento: se usan los valores del modelo */ }
+}
+
+function ctGuardar() {
+  const cambios = {};
+  for (const id in CT.valores) for (const k in CT.valores[id]) {
+    if (!ctIgual(CT.valores[id][k], CT.defecto[id][k])) (cambios[id] = cambios[id] || {})[k] = CT.valores[id][k];
+  }
+  try { localStorage.setItem(CT_LS, JSON.stringify({ base: ctFirma(CT.defecto), cambios, personalSigue: CT.personalSigue })); } catch (e) { /* idem */ }
+}
+
+function ctNumCambios(filas) {
+  let n = 0;
+  for (const f of filas) for (const id of CT_VISIBLES) if (!ctIgual(CT.valores[id][f.key], CT.defecto[id][f.key])) n++;
+  return n;
+}
 
 function pmt(rate, nper, pv) {
+  if (!(nper > 0)) return 0;
   return rate === 0 ? -pv / nper : -pv * rate / (1 - Math.pow(1 + rate, -nper));
 }
 
 /** Interés acumulado (en negativo) de las cuotas start..end, como CUMIPMT de Excel. */
 function cumipmt(rate, nper, pv, start, end) {
+  if (!(nper > 0) || !(rate > 0) || end < start) return 0;
   const cuota = -pmt(rate, nper, pv);
   let saldo = pv, tot = 0;
   for (let p = 1; p <= Math.min(end, nper); p++) {
@@ -627,21 +692,31 @@ function cumipmt(rate, nper, pv, start, end) {
   return -tot;
 }
 
-/** Cuenta de los 10 primeros años. vn1 = ventas netas del año 1. */
-function cuentaModelo(esc, vn1, rentMes) {
-  const P = esc.params, g = esc.crecimiento || [], ipc = P.ipc || 0;
-  const personal1 = -Math.max(0, (P.gross_sales / (1 + P.vat)) * P.personnel_pct - P.personnel_reduction);
+/** Crecimiento de las ventas de cada año (índice t-1): años 2-4 editables y,
+ *  del 5 al 10, el IPC. */
+function crecimientoDe(P) {
+  const ipc = P.ipc || 0;
+  return [0, P.g2, P.g3, P.g4, ipc, ipc, ipc, ipc, ipc, ipc];
+}
+
+/** Cuenta de los 10 primeros años. vn1 = ventas netas del año 1.
+ *  personalSigue: el personal se calcula con vn1 (Excel) o con la venta del tamaño. */
+function cuentaModelo(esc, vn1, rentMes, personalSigue) {
+  const P = esc.params, g = crecimientoDe(P), ipc = P.ipc || 0;
+  const ventaPers = personalSigue ? vn1 : P.gross_sales / (1 + P.vat);
+  const personal1 = -ventaPers * P.personnel_pct + P.personnel_reduction;   // Excel: =-B6*M10+M32
   const energia1  = -P.energy_ref * (P.sqm / P.energy_ref_sqm);
-  const renting1  = pmt(P.renting_rate / 12, P.renting_months, P.equipment) * 12;
+  const cuotaRent = pmt(P.renting_rate / 12, P.renting_months, P.equipment);  // mensual, negativa
   const prestamo  = P.works * P.bank_share;
-  const r         = P.bank_rate / 12;
-  const nAmort    = P.bank_months - P.grace_months;
+  const rm        = P.bank_rate / 12;
+  const gr        = P.grace_months, plazo = P.bank_months;
 
   const anios = [];
   let v = vn1;
   for (let t = 1; t <= 10; t++) {
     if (t > 1) v *= 1 + (g[t - 1] || 0);
     const f = Math.pow(1 + ipc, t - 1);
+    const ini = (t - 1) * 12, fin = t * 12;
     const L = { ventas: v };
     L.margen_bruto     = v * P.gross_margin;
     L.merma            = -v * P.shrink;
@@ -654,7 +729,7 @@ function cuentaModelo(esc, vn1, rentMes) {
     L.seguridad        = -P.security * f;
     L.comunicaciones   = -P.communications * f;
     L.alquiler         = -rentMes * 12 * f;
-    L.renting          = t <= P.renting_months / 12 ? renting1 : 0;
+    L.renting          = cuotaRent * Math.max(0, Math.min(12, P.renting_months - ini));
     L.tributos         = -P.other_taxes * f;
     L.tarjetas         = -v * P.cards;
     L.rappel           = v * P.rappel;
@@ -666,15 +741,20 @@ function cuentaModelo(esc, vn1, rentMes) {
     L.total_gastos     = L.gastos_comerciales + L.alquiler + L.renting + L.tributos
                        + L.tarjetas + L.rappel + L.ensena + L.admin + L.resto;
     L.cash_flow        = L.margen_comercial + L.total_gastos;
-    L.amortizacion     = -P.works / P.depreciation_years;
+    // Amortización lineal de la obra: cuota anual = obra / años, y se acaba cuando
+    // se agota el importe (Excel: -MIN(obra/años, MAX(0, obra-(t-1)*obra/años)))
+    const cuotaAm = P.depreciation_years > 0 ? P.works / P.depreciation_years : 0;
+    L.amortizacion     = -Math.min(cuotaAm, Math.max(0, P.works - (t - 1) * cuotaAm));
     L.res_explotacion  = L.cash_flow + L.amortizacion;
-    if (t === 1) {
-      // carencia: solo intereses; luego las primeras cuotas del préstamo
-      L.gastos_fin = -prestamo * r * P.grace_months
-                   + cumipmt(r, nAmort, prestamo, 1, 12 - P.grace_months);
+    // Préstamo: durante la carencia solo intereses; después, intereses de cada
+    // cuota del plan francés. Mismo reparto por meses que la hoja de proyección.
+    if (prestamo === 0 || rm === 0) {
+      L.gastos_fin = 0;
     } else {
-      const a = 12 * (t - 1) - P.grace_months + 1, b = 12 * t - P.grace_months;
-      L.gastos_fin = a > nAmort ? 0 : cumipmt(r, nAmort, prestamo, a, Math.min(b, nAmort));
+      L.gastos_fin = -prestamo * rm * Math.max(0, Math.min(gr, fin) - ini);
+      if (!(fin <= gr || ini >= plazo)) {
+        L.gastos_fin += cumipmt(rm, plazo - gr, prestamo, Math.max(1, ini - gr + 1), Math.min(plazo - gr, fin - gr));
+      }
     }
     L.bai       = L.res_explotacion + L.gastos_fin;
     L.impuesto  = -Math.max(0, L.bai * P.tax_rate);
@@ -684,6 +764,26 @@ function cuentaModelo(esc, vn1, rentMes) {
   const media = {};
   for (const k of Object.keys(anios[0])) media[k] = anios.reduce((s, L) => s + L[k], 0) / anios.length;
   return { anio1: anios[0], media, anios, personal1 };
+}
+
+/** Siete controles del Excel para un tamaño (true = OK), en el orden de la guía. */
+function ctControlesTramo(id) {
+  const C = window.CUENTA;
+  const t = C && C.tramos && C.tramos.find(x => x.id === id);
+  if (!t) return [];
+  const P = CT.valores[id];
+  const R = cuentaModelo({ params: P }, P.gross_sales / (1 + P.vat), P.rent_monthly, true);
+  const a1 = R.anio1;
+  const fp = P.works * (1 - P.bank_share), pr = P.works * P.bank_share;
+  return [
+    P.sqm > 0 && P.rent_monthly >= 0 && P.equipment >= 0 && P.works >= 0 && P.gross_sales > 0,
+    a1.personal <= 0,
+    P.renting_months > 0 && P.bank_months > P.grace_months && P.grace_months >= 0 && P.depreciation_years > 0,
+    Math.abs(fp + pr - P.works) < 0.005,
+    Math.abs(a1.margen_comercial + a1.total_gastos - a1.cash_flow) < 0.005,
+    Math.abs(a1.bai + a1.impuesto - a1.beneficio) < 0.005,
+    Math.abs(R.media.cash_flow - R.anios.reduce((s, L) => s + L.cash_flow, 0) / R.anios.length) < 0.005,
+  ];
 }
 
 // Orden y tipo de fila: el mismo que la hoja de cuentas del modelo
@@ -702,8 +802,9 @@ const CT_SIGNO = new Set(["cash_flow", "res_explotacion", "bai", "beneficio"]);
 /** Negativos con signo menos. Antes iban entre paréntesis como en el Excel, pero
  *  "(65.051)" en rojo se leía como un número positivo: en pantalla es más claro
  *  un "−65.051". */
-const eurC = n => (n < -0.5 ? "−" + eur(-n) : eur(Math.abs(n) < 0.5 ? 0 : n));
+const eurC = n => !isFinite(n) ? "—" : (n < -0.5 ? "−" + eur(-n) : eur(Math.abs(n) < 0.5 ? 0 : n));
 const pctC = n => {
+  if (!isFinite(n)) return "—";
   const s = Math.abs(n * 100).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
   return n < -0.0005 ? "−" + s : s;
 };
@@ -716,27 +817,45 @@ function textoCrecimiento(g) {
     if (last && Math.abs(last.x - x) < 1e-9) last.b = t; else tramos.push({ a: t, b: t, x });
   }
   const pc = x => (x * 100).toLocaleString("es-ES", { maximumFractionDigits: 2 }) + "%";
-  return tramos.map(s => "+" + pc(s.x) + (s.a === s.b ? " año " + s.a : " años " + s.a + "–" + s.b)).join(" · ");
+  return tramos.map(s => (s.x >= 0 ? "+" : "−") + pc(Math.abs(s.x)) + (s.a === s.b ? " año " + s.a : " años " + s.a + "–" + s.b)).join(" · ");
 }
 
 function escActual() {
   const C = window.CUENTA;
-  if (!C || !C.escenarios || !C.escenarios.length) return null;
-  return C.escenarios.find(e => e.id === escId) || C.escenarios[0];
+  if (!C || !C.tramos || !C.tramos.length || !CT.valores[C.tramos[0].id]) return null;
+  const t = C.tramos.find(x => x.id === escId) || C.tramos[0];
+  escId = t.id;
+  return { id: t.id, nombre: t.nombre, params: CT.valores[t.id] };
+}
+
+/** Texto de cada botón de tamaño: se refresca cuando se edita la superficie. */
+function etiquetaTramo(t) {
+  return `${t.nombre}<small>${eur(CT.valores[t.id].sqm)} m² de sala</small>`;
 }
 
 function buildEscSeg() {
   const C = window.CUENTA, seg = document.getElementById("escSeg");
   if (!seg) return;
-  if (!C || !C.escenarios) { seg.innerHTML = ""; return; }
-  if (!C.escenarios.some(e => e.id === escId)) escId = C.escenarios[0].id;
-  seg.innerHTML = C.escenarios.map(e =>
-    `<button type="button" data-id="${e.id}" class="${e.id === escId ? "on" : ""}">${e.nombre}<small>${eur(e.params.sqm)} m² de sala</small></button>`
+  if (!C || !C.tramos || !CT.valores[C.tramos[0].id]) { seg.innerHTML = ""; return; }
+  if (!C.tramos.some(t => t.id === escId)) escId = C.tramos[0].id;
+  seg.innerHTML = ctTramos().map(t =>
+    `<button type="button" data-id="${t.id}" class="${t.id === escId ? "on" : ""}">${etiquetaTramo(t)}</button>`
   ).join("");
   [...seg.children].forEach(b => b.onclick = () => {
     escId = b.dataset.id;
     [...seg.children].forEach(x => x.classList.toggle("on", x === b));
+    ctMarcarTramo();
     renderCuenta();
+  });
+  ctMarcarTramo();
+}
+
+function actualizarEscSeg() {
+  const C = window.CUENTA, seg = document.getElementById("escSeg");
+  if (!seg || !C || !C.tramos) return;
+  [...seg.children].forEach(b => {
+    const t = C.tramos.find(x => x.id === b.dataset.id);
+    if (t) b.innerHTML = etiquetaTramo(t);
   });
 }
 
@@ -770,7 +889,7 @@ function cuentaActual() {
   const rentTuya = rp.rent > 0;
   const rentMes = rentTuya ? rp.rent : P.rent_monthly;
 
-  const R = cuentaModelo(esc, vn1, rentMes);
+  const R = cuentaModelo(esc, vn1, rentMes, CT.personalSigue);
   // El resultado antes de impuestos es lineal en la renta, así que el alquiler
   // con el que se queda en cero sale directo. En la media de 10 años la renta
   // sube con el IPC, por eso se divide por el factor medio de actualización.
@@ -779,9 +898,9 @@ function cuentaActual() {
   const rentMax1  = rentMes + R.anio1.bai / 12;
   const rentMax10 = rentMes + R.media.bai / (12 * fMed);
   // Venta mínima para no perder dinero con esta renta. También es lineal (los
-  // gastos de personal, energía, renting, intereses... son fijos y el resto
-  // son % de la venta), así que se despeja con dos puntos: BAI(v) = a + b·v.
-  const bai2 = cuentaModelo(esc, vn1 * 1.5, rentMes);
+  // gastos fijos no dependen de la venta y el resto son % de la venta), así que
+  // se despeja con dos puntos: BAI(v) = a + b·v.
+  const bai2 = cuentaModelo(esc, vn1 * 1.5, rentMes, CT.personalSigue);
   const ventaMin = (b1, b2) => {
     const pend = (b2 - b1) / (vn1 * 0.5);
     return pend > 0 ? vn1 - b1 / pend : null;
@@ -813,7 +932,7 @@ function renderSugerencias(Ct) {
   vBox.innerHTML = `<div class="sug-tit">Venta mínima para no perder</div>`
     + linea("Año 1", ventaMin1, vn1)
     + linea("Para que la media de 10 años no sea negativa (venta del año 1)", ventaMin10, vn1)
-    + `<div class="sug-foot">Con un alquiler de ${eur(rentMes)} €/mes ${rentTuya ? "(el tuyo)" : "(el del modelo)"} y el personal fijo del tramo ${Ct.esc.nombre.toLowerCase()}.</div>`;
+    + `<div class="sug-foot">Con un alquiler de ${eur(rentMes)} €/mes ${rentTuya ? "(el tuyo)" : "(el del modelo)"} y el personal ${CT.personalSigue ? "que sigue a la venta" : "fijo"} del tamaño ${Ct.esc.nombre.toLowerCase()}.</div>`;
 
   // ── Renta ──
   const porM2 = n => m2 > 0 && n > 0 ? ` (${eur2(n / m2)} €/m²)` : "";
@@ -838,6 +957,7 @@ function renderCuenta() {
   const nota = document.getElementById("escNota");
   const Ct = cuentaActual();
   renderSugerencias(Ct);
+  ctActualizarEstado(Ct);
   if (!Ct) {
     out.innerHTML = `<div class="note">No está cargado el modelo de cuenta de explotación.</div>`;
     return;
@@ -846,26 +966,43 @@ function renderCuenta() {
   const a1 = R.anio1, md = R.media;
   const rentMax = Ct.rentMax1;   // BAI del año 1 = 0
 
-  if (nota) nota.textContent = "Tramo " + esc.nombre.toLowerCase() + " del modelo: venta " + eur(P.gross_sales)
+  if (nota) nota.textContent = "Tamaño " + esc.nombre.toLowerCase() + " del modelo: venta " + eur(P.gross_sales)
     + " € con IVA, alquiler " + eur(P.rent_monthly) + " €/mes, personal " + eur(-R.personal1) + " €/año.";
 
   const fila = ([k, tipo]) => {
     const etiqueta = (window.CUENTA.lineas && window.CUENTA.lineas[k]) || k;
     let tag = "";
-    if (k === "personal") tag = `<span class="tagi tagf">fijo del modelo</span>`;
-    if (k === "alquiler") tag = rentTuya ? `<span class="tagi">tu renta</span>` : `<span class="tagi tagf">del modelo</span>`;
-    if (k === "ventas")   tag = ventaTuya ? `<span class="tagi">tu venta</span>` : `<span class="tagi tagf">del modelo</span>`;
+    if (k === "personal") tag = CT.personalSigue ? `<span class="tagi">sigue a la venta</span>` : `<span class="tagi tagf">fijo del modelo</span>`;
+    if (k === "alquiler") tag = rentTuya ? `<span class="tagi">tu renta</span>` : `<span class="tagi tagf">dato de entrada</span>`;
+    if (k === "ventas")   tag = ventaTuya ? `<span class="tagi">tu venta</span>` : `<span class="tagi tagf">dato de entrada</span>`;
     const cls = n => CT_SIGNO.has(k) ? (n < 0 ? "neg" : "pos") : "";
     const celda = (n, base) => `<div class="n ${cls(n)}">${eurC(n)}<small>${pctC(base ? n / base : 0)}</small></div>`;
-    return `<div class="ct-row ${tipo}"><div class="c">${etiqueta}${tag}</div>`
-      + celda(a1[k], a1.ventas) + celda(md[k], md.ventas) + `</div>`;
+    // dos columnas, como el Excel: Cuentas Madrid (año 1) y la media de los 10 primeros años
+    return `<div class="ct-row ${tipo}"><div class="c">${etiqueta}${tag}</div>` + celda(a1[k], a1.ventas) + celda(md[k], md.ventas) + `</div>`;
+  };
+
+  // Cómo repercuten los cambios: los mismos resultados con los datos ORIGINALES del
+  // modelo (con tu misma venta y renta si las has escrito), para ver la diferencia.
+  let orig = null;
+  if (ctNumCambios(ctCampos()) > 0) {
+    const P0 = CT.defecto[esc.id];
+    const vn0 = ventaTuya ? (conIVA ? vIn / (1 + P0.vat) : vIn) : P0.gross_sales / (1 + P0.vat);
+    orig = cuentaModelo({ params: P0 }, vn0, rentTuya ? rentMes : P0.rent_monthly, CT.personalSigue);
+  }
+  const vsOrig = (ahora, antes, sufijo) => {
+    if (!orig) return "";
+    const d = ahora - antes;
+    if (Math.abs(d) < 0.5) return `<div class="s s2">Igual que con los datos del modelo (${eurC(antes)} ${sufijo}).</div>`;
+    return `<div class="s s2">Con los datos del modelo: ${eurC(antes)} ${sufijo} · <b style="color:${d > 0 ? "var(--good)" : "var(--bad)"}">${d > 0 ? "+" : "−"}${eur(Math.abs(d))}</b></div>`;
   };
 
   const pctAlq = -a1.alquiler / a1.ventas;
   const vColor = n => n < 0 ? "var(--bad)" : "var(--good)";
 
   const M = rentTuya ? marcaRiesgo(Ct) : null;
+  const fallos = ctControlesTramo(esc.id).map((ok, i) => ok ? null : ((window.CUENTA.guia && window.CUENTA.guia.controles[i]) || {}).etiqueta).filter(Boolean);
   out.innerHTML = `
+    ${fallos.length ? `<div class="ct-warn"><b>Revisa los datos de este tamaño:</b> no pasan ${fallos.length === 1 ? "el control" : "los controles"} «${fallos.join("», «")}». Mira «Controles automáticos» más abajo; los resultados pueden no ser fiables.</div>` : ""}
     ${M ? `<div class="rk-banner" style="border-color:${M.c}">
       <span class="rk-pill rk-big" style="background:${M.c}">${M.t}</span>
       <div class="rk-txt">${M.texto}<span class="rk-src">Según la cuenta de explotación (resultado antes de impuestos).</span></div>
@@ -873,23 +1010,25 @@ function renderCuenta() {
     ${esfuerzoBlock(rentMes)}
     <div class="cuenta">
       <div class="ct-head">
-        <span class="ct-tit">Cuenta de explotación · tramo ${esc.nombre.toLowerCase()} · ${eur(P.sqm)} m² de sala</span>
-        <span class="ct-src">Año 1 y media de los 10 primeros años</span>
+        <span class="ct-tit">Cuenta de explotación · tamaño ${esc.nombre.toLowerCase()} · ${eur(P.sqm)} m² de sala</span>
+        <span class="ct-src">Año 1 (Cuentas Madrid) y media de los 10 primeros años</span>
       </div>
       <div class="ct-inputs">
         <span>Venta <b>${eur(ventaTuya ? vIn : P.gross_sales)} €</b> ${ventaTuya ? (conIVA ? "con IVA" : "sin IVA") : "con IVA"}
-          <span class="orig">${ventaTuya ? "(la tuya)" : "(del modelo: escribe la tuya arriba)"}</span></span>
+          <span class="orig">${ventaTuya ? "(la tuya)" : "(la de los datos de entrada; escribe la tuya arriba)"}</span></span>
         <span>Alquiler <b>${eur(rentMes)} €/mes</b>
-          <span class="orig">${rentTuya ? "(el de la sección 2)" : "(del modelo: pon la renta en la sección 2)"}</span></span>
+          <span class="orig">${rentTuya ? "(el de la sección 2)" : "(el de los datos de entrada; pon la renta en la sección 2)"}</span></span>
       </div>
       ${rp.motivo ? `<div class="hint show">${rp.motivo}</div>` : ""}
       <div class="ct-kpis">
         <div class="ct-kpi"><div class="k">${a1.beneficio < 0 ? "Pérdida neta" : "Beneficio neto"} · año 1</div>
           <div class="v" style="color:${vColor(a1.beneficio)}">${eurC(a1.beneficio)}<small> €</small></div>
-          <div class="s">${a1.beneficio < 0 ? "Pierdes" : "Ganas"} el ${pctC(Math.abs(a1.beneficio) / a1.ventas)} de la venta neta</div></div>
+          <div class="s">${a1.beneficio < 0 ? "Pierdes" : "Ganas"} el ${pctC(Math.abs(a1.beneficio) / a1.ventas)} de la venta neta</div>
+          ${orig ? vsOrig(a1.beneficio, orig.anio1.beneficio, "€") : ""}</div>
         <div class="ct-kpi"><div class="k">${md.beneficio < 0 ? "Pérdida neta" : "Beneficio neto"} · media 10 años</div>
           <div class="v" style="color:${vColor(md.beneficio)}">${eurC(md.beneficio)}<small> €/año</small></div>
-          <div class="s">${md.beneficio < 0 ? "Pierdes" : "Ganas"} el ${pctC(Math.abs(md.beneficio) / md.ventas)} de la venta neta</div></div>
+          <div class="s">${md.beneficio < 0 ? "Pierdes" : "Ganas"} el ${pctC(Math.abs(md.beneficio) / md.ventas)} de la venta neta</div>
+          ${orig ? vsOrig(md.beneficio, orig.media.beneficio, "€/año") : ""}</div>
         <div class="ct-kpi"><div class="k">Alquiler máximo · año 1</div>
           <div class="v" style="color:${vColor(rentMax - rentMes)}">${rentMax > 0 ? eur(rentMax) : "0"}<small> €/mes</small></div>
           <div class="s">${rentMax <= 0
@@ -903,15 +1042,222 @@ function renderCuenta() {
         ${CT_FILAS.map(fila).join("")}
       </div>
       <div class="ct-notes">
-        <b>Gastos de personal: fijos</b>, los del modelo para el tramo ${esc.nombre.toLowerCase()}
-        (${eur(-R.personal1)} € el año 1); no cambian con la venta que pongas.
-        <b>Proyección:</b> ventas ${textoCrecimiento(esc.crecimiento || [])};
+        ${CT.personalSigue
+          ? `<b>Gastos de personal: siguen a la venta</b> el año 1 (${pctC(P.personnel_pct)} de la venta neta${P.personnel_reduction ? " menos " + eur(P.personnel_reduction) + " €" : ""} = ${eur(-R.personal1)} €) y después suben con el IPC.`
+          : `<b>Gastos de personal: fijos</b>, los del modelo para el tamaño ${esc.nombre.toLowerCase()}
+             (${eur(-R.personal1)} € el año 1); no cambian con la venta que pongas.`}
+        <b>Proyección:</b> ventas ${textoCrecimiento(crecimientoDe(P))};
         personal, alquiler y gastos fijos suben con el IPC (${pctC(P.ipc)}); el resto mantiene su % sobre ventas;
         renting de ${eur(P.renting_months / 12)} años; préstamo de obras del ${pctC(P.bank_share)} a ${eur(P.bank_months / 12)} años al
         ${pctC(P.bank_rate)} con ${eur(P.grace_months)} meses de carencia; impuesto de sociedades ${pctC(P.tax_rate)} si hay beneficio.
         <br/>Fuente: ${window.CUENTA.fuente || "modelo de cuenta"}.
       </div>
     </div>`;
+}
+
+// ── Paneles editables de la cuenta ───────────────────────────────────────────
+// Datos de entrada e hipótesis del modelo, editables por tamaño de tienda, más
+// indicadores, controles, proyección año a año y guía. Lo que se muestra de cada
+// campo (nombre, unidad, explicación) sale del propio Excel vía window.CUENTA.
+
+/** Valor tal y como se escribe en un campo: los % en puntos (27,5), sin símbolo. */
+function ctFmtCampo(f, v) {
+  if (!isFinite(v)) return "";
+  if (f.tipo === "pct") return (Math.round(v * 1e6) / 1e4).toLocaleString("es-ES", { maximumFractionDigits: 4, useGrouping: false });
+  return Number.isInteger(v) ? fmtEs(v, 0)
+    : (Math.round(v * 100) / 100).toLocaleString("es-ES", { maximumFractionDigits: 2, useGrouping: false });
+}
+
+function ctFilaHTML(f) {
+  const C = window.CUENTA;
+  return `<div class="ced-row">
+    <div class="l"><b>${f.etiqueta}</b><span class="u">${f.unidad}</span><span class="ced-crit">${f.criterio}</span></div>
+    ${ctTramos().map(t => `<div class="vc ${t.id}"><input type="text" inputmode="decimal" autocomplete="off"
+        data-t="${t.id}" data-k="${f.key}" value="${ctFmtCampo(f, CT.valores[t.id][f.key])}"
+        class="${ctIgual(CT.valores[t.id][f.key], CT.defecto[t.id][f.key]) ? "" : "chg"}"
+        aria-label="${f.etiqueta} · ${t.nombre}"/></div>`).join("")}
+  </div>`;
+}
+
+function ctCabeceraHTML() {
+  const C = window.CUENTA;
+  return `<div class="ced-row hd"><div class="l">Concepto</div>${ctTramos().map(t => `<div class="vc ${t.id}">${t.nombre}</div>`).join("")}</div>`;
+}
+
+/** Marca el tamaño activo: en el móvil solo se ve su columna. */
+function ctMarcarTramo() {
+  document.querySelectorAll(".ced-grid .vc").forEach(el => el.classList.toggle("act", el.classList.contains(escId)));
+}
+
+function ctIndicadoresHTML() {
+  const C = window.CUENTA;
+  if (!C.indicadores) return "";
+  const val = (key, id) => {
+    const P = CT.valores[id], inv = P.equipment + P.works;
+    switch (key) {
+      case "inversion_total": return inv;
+      case "fondos_propios":  return P.works * (1 - P.bank_share);
+      case "prestamo":        return P.works * P.bank_share;
+      case "inversion_m2":    return P.sqm > 0 ? inv / P.sqm : 0;
+      case "ventas_m2":       return P.sqm > 0 ? P.gross_sales / (1 + P.vat) / P.sqm : 0;
+    }
+    return 0;
+  };
+  return `<div class="ced-sec">Indicadores (se calculan solos)</div>`
+    + C.indicadores.map(i => `<div class="ced-row ro">
+        <div class="l"><b>${i.etiqueta}</b><span class="u">${i.unidad}</span><span class="ced-crit">${i.criterio}</span></div>
+        ${ctTramos().map(t => `<div class="vc ${t.id}"><span class="ro-v">${eurC(val(i.key, t.id))}</span></div>`).join("")}
+      </div>`).join("");
+}
+
+function ctActualizarIndicadores() {
+  const box = document.getElementById("cedIndBody");
+  if (box) { box.innerHTML = ctIndicadoresHTML(); ctMarcarTramo(); }
+}
+
+/** Campo editado a mano: se valida, se guarda en el dispositivo y se recalcula. */
+function ctEditar(inp) {
+  const f = ctCampos().find(x => x.key === inp.dataset.k);
+  const id = inp.dataset.t;
+  if (!f || !CT.valores[id]) return;
+  const n = parseNum(inp.value);
+  if (!isFinite(n)) { inp.classList.add("bad"); return; }
+  inp.classList.remove("bad");
+  const v = f.tipo === "pct" ? n / 100 : n;
+  CT.valores[id][f.key] = v;
+  inp.classList.toggle("chg", !ctIgual(v, CT.defecto[id][f.key]));
+  ctGuardar();
+  ctActualizarIndicadores();
+  actualizarEscSeg();
+  renderCuenta();
+}
+
+function ctEnlazarEdicion(body) {
+  body.addEventListener("input", e => { const i = e.target.closest("input[data-k]"); if (i) ctEditar(i); });
+  // al salir del campo se escribe en formato canónico (1.100.000, 27,5…)
+  body.addEventListener("focusout", e => {
+    const i = e.target.closest("input[data-k]");
+    if (!i) return;
+    const f = ctCampos().find(x => x.key === i.dataset.k);
+    if (f && CT.valores[i.dataset.t]) { i.value = ctFmtCampo(f, CT.valores[i.dataset.t][f.key]); i.classList.remove("bad"); }
+  });
+}
+
+/** Construye los paneles una vez (los campos no se reescriben al teclear). */
+function ctCrearPaneles() {
+  const C = window.CUENTA;
+  const bE = document.getElementById("cedEntradaBody");
+  if (!bE) return;
+  if (!C || !C.entrada || !C.tramos || !CT.valores[C.tramos[0].id]) {
+    bE.innerHTML = `<div class="note">No está cargado el modelo de cuenta de explotación.</div>`;
+    return;
+  }
+
+  bE.innerHTML = `
+    <p class="ced-intro">Son las <b>celdas amarillas</b> del Excel (tamaño alto). Cambia cualquiera y mira cómo repercute en la cuenta de abajo: año 1 y media a 10 años.
+      Los cambios se guardan en este dispositivo; lo que difiere del modelo se marca con un borde de color.</p>
+    <div class="ced-grid">
+      ${ctCabeceraHTML()}
+      ${C.entrada.filas.map(ctFilaHTML).join("")}
+      <div id="cedIndBody">${ctIndicadoresHTML()}</div>
+    </div>
+    <p class="ced-nota">${C.entrada.nota || ""}</p>
+    <p class="ced-nota">${C.entrada.cashflow || ""}</p>
+    <div class="ced-acc"><button type="button" class="usebtn" id="ctReset">Restaurar los valores del modelo</button>
+      <span class="ced-info" id="ctResetInfo"></span></div>`;
+
+  const bH = document.getElementById("cedHipBody");
+  bH.innerHTML = `
+    <p class="ced-intro">Son las <b>celdas grises</b> del Excel: márgenes, personal, gastos, financiación e IPC. Los porcentajes se escriben en puntos (27,5 = 27,5%).
+      Debajo del nombre de cada fila tienes su explicación.</p>
+    <div class="ced-grid">
+      ${ctCabeceraHTML()}
+      ${C.hipotesis.map(b => `<div class="ced-sec">${b.titulo}</div>${b.filas.map(ctFilaHTML).join("")}`).join("")}
+    </div>`;
+
+  ctEnlazarEdicion(bE); ctEnlazarEdicion(bH);
+
+  document.getElementById("ctReset").onclick = () => {
+    if (!confirm("¿Restaurar todos los datos de entrada e hipótesis a los valores del modelo? Se pierden tus cambios.")) return;
+    CT.valores = JSON.parse(JSON.stringify(CT.defecto));
+    ctGuardar();
+    ctCrearPaneles();
+    actualizarEscSeg();
+    renderCuenta();
+  };
+
+  ctCrearGuia();
+  ctMarcarTramo();
+  // proyección: solo se dibuja con el desplegable abierto
+  const dp = document.getElementById("cedProy");
+  if (dp && !dp.dataset.enlazado) { dp.dataset.enlazado = "1"; dp.addEventListener("toggle", () => { if (dp.open) renderCuenta(); }); }
+}
+
+function ctCrearGuia() {
+  const C = window.CUENTA, box = document.getElementById("cedGuiaBody");
+  if (!box || !C || !C.guia) return;
+  const G = C.guia;
+  box.innerHTML = `
+    <div class="ced-guia">
+      <p class="csub" style="margin-top:6px!important">Cómo se usa</p>
+      <ol>
+        <li>Se trabaja con el <b>tamaño alto</b> del modelo (el que se ve en la columna de datos de entrada).</li>
+        <li>Escribe <b>tu venta</b> (aquí) y <b>tu renta</b> (en la sección 2). Si las dejas vacías, la cuenta usa las del modelo.</li>
+        <li>Cambia los <b>datos de entrada</b> (celdas amarillas: m², alquiler, equipamiento, obra y ventas) y, si quieres, las <b>hipótesis</b> (grises). La cuenta se recalcula sola y te dice cuánto cambia respecto al modelo.</li>
+        <li>Mira la cuenta en dos columnas: el <b>año 1</b> (Cuentas Madrid) y la <b>media de los 10 primeros años</b>. La proyección año a año está en su desplegable.</li>
+        <li>Revisa los <b>controles automáticos</b>: si alguno sale «REVISAR», hay un dato incoherente.</li>
+      </ol>
+      <p class="csub">Alcance y cautelas del modelo</p>
+      <ul>${G.cautelas.map(c => `<li>${c}</li>`).join("")}</ul>
+      <p class="csub">Origen de los datos</p>
+      ${G.origen.map(o => `<p>${o}</p>`).join("")}
+      <p class="csub">Historial de supuestos (registro de origen, no se edita)</p>
+      <div class="ct-proy"><table class="ct-ptab">
+        <thead><tr><th>Hipótesis</th><th>Origen</th>${ctTramos().map(t => `<th>${t.nombre}</th>`).join("")}<th>Observación</th></tr></thead>
+        <tbody>${G.historial.map(h => `<tr><th>${h.concepto}</th><td>${h.origen}</td><td>${h.alto}</td><td>${h.nota}</td></tr>`).join("")}</tbody>
+      </table></div>
+    </div>`;
+}
+
+/** Se llama en cada recálculo: resúmenes, controles y proyección. */
+function ctActualizarEstado(Ct) {
+  const C = window.CUENTA;
+  if (!C || !C.tramos || !C.entrada) return;
+
+  // resúmenes de los desplegables: cuántos campos se han cambiado
+  const nE = ctNumCambios(C.entrada.filas);
+  const nH = ctNumCambios(ctCampos().filter(f => !C.entrada.filas.includes(f)));
+  const badge = (n) => n ? `<span class="ced-badge">${n} cambiado${n === 1 ? "" : "s"}</span>` : "";
+  const sE = document.getElementById("cedEntradaSum"), sH = document.getElementById("cedHipSum");
+  if (sE) sE.innerHTML = badge(nE);
+  if (sH) sH.innerHTML = badge(nH);
+  const info = document.getElementById("ctResetInfo");
+  if (info) info.textContent = (nE + nH) ? `${nE + nH} cifra${nE + nH === 1 ? "" : "s"} distinta${nE + nH === 1 ? "" : "s"} del modelo.` : "Todo está como en el modelo.";
+
+  // controles automáticos (los 7 del Excel) para los tres tamaños
+  const body = document.getElementById("cedCtlBody"), sum = document.getElementById("cedCtlSum");
+  if (body && C.guia) {
+    const res = ctTramos().map(t => ctControlesTramo(t.id));
+    const malos = res.reduce((s, r) => s + r.filter(x => !x).length, 0);
+    if (sum) sum.innerHTML = malos ? `<span class="ced-badge mal">${malos} por revisar</span>` : `<span class="ced-badge ok">todos OK</span>`;
+    body.innerHTML = `<div class="ct-proy"><table class="ct-ptab">
+      <thead><tr><th>Control</th>${ctTramos().map(t => `<th>${t.nombre}</th>`).join("")}<th>Qué comprueba</th></tr></thead>
+      <tbody>${C.guia.controles.map((c, i) => `<tr><th>${c.etiqueta}</th>
+        ${res.map(r => `<td><span class="ced-chip ${r[i] ? "ok" : "mal"}">${r[i] ? "OK" : "REVISAR"}</span></td>`).join("")}
+        <td>${c.criterio}</td></tr>`).join("")}</tbody></table></div>`;
+  }
+
+  // proyección año a año del tamaño activo (con tu venta y tu renta)
+  const dp = document.getElementById("cedProy"), pb = document.getElementById("cedProyBody");
+  if (dp && dp.open && pb && Ct) {
+    const R = Ct.R;
+    pb.innerHTML = `<p class="ced-intro">Tamaño ${Ct.esc.nombre.toLowerCase()}, con la venta y la renta de la cuenta de arriba. Importes en euros sin IVA.</p>
+      <div class="ct-proy"><table class="ct-ptab">
+        <thead><tr><th>Concepto</th>${R.anios.map((_, i) => `<th>Año ${i + 1}</th>`).join("")}<th>Media</th></tr></thead>
+        <tbody>${CT_FILAS.map(([k, tipo]) => `<tr class="${tipo}"><th>${(C.lineas && C.lineas[k]) || k}</th>
+          ${R.anios.map(L => `<td class="${CT_SIGNO.has(k) ? (L[k] < 0 ? "neg" : "pos") : ""}">${eurC(L[k])}</td>`).join("")}
+          <td class="m ${CT_SIGNO.has(k) ? (R.media[k] < 0 ? "neg" : "pos") : ""}">${eurC(R.media[k])}</td></tr>`).join("")}</tbody></table></div>`;
+  }
 }
 
 // ── Marca de riesgo del alquiler: sale de la cuenta de explotación ───────────
@@ -1216,6 +1562,21 @@ document.addEventListener("DOMContentLoaded", () => {
   ["ventas", "rent", "m2"].forEach(id => document.getElementById(id).addEventListener("input", renderCuenta));
   ["ivaSi", "ivaNo", "domNo", "domSi", "mTotal", "mUnit"].forEach(id =>
     document.getElementById(id).addEventListener("click", renderCuenta));
+
+  // modo del gasto de personal (fijo del tamaño / sigue a la venta)
+  const pintaPersonal = () => {
+    document.getElementById("persFijo").classList.toggle("on", !CT.personalSigue);
+    document.getElementById("persSigue").classList.toggle("on", CT.personalSigue);
+    document.getElementById("persNota").textContent = CT.personalSigue
+      ? "Como en el Excel: el personal es un % de las ventas netas que estés usando (tu venta si la escribes)."
+      : "El personal es el del modelo para ese tamaño y no cambia con la venta que escribas.";
+  };
+  document.getElementById("persFijo").onclick  = () => { CT.personalSigue = false; ctGuardar(); pintaPersonal(); renderCuenta(); };
+  document.getElementById("persSigue").onclick = () => { CT.personalSigue = true;  ctGuardar(); pintaPersonal(); renderCuenta(); };
+
+  ctInit();
+  pintaPersonal();
+  ctCrearPaneles();
   buildEscSeg();
   renderCuenta();
 

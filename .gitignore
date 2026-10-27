@@ -12,3 +12,6 @@ build/
 # Ficheros fuente del usuario (xlsx/xls originales) por si se copian al repo
 *.xlsx
 *.xls
+
+# Copia temporal del oraculo de la prueba contra el Excel: nunca se publica
+app/_oracle*.json

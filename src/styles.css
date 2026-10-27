@@ -378,6 +378,8 @@ input:focus, select:focus {
 .ct-kpi .v { font-size: 21px; font-weight: 780; font-family: var(--mono); line-height: 1.1; }
 .ct-kpi .v small { font-size: 11px; color: var(--muted); font-weight: 400; }
 .ct-kpi .s { font-size: 11.5px; color: var(--soft); margin-top: 4px; }
+.ct-kpi .s2 { color: var(--muted); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 6px; }
+.ct-kpi .s2 b { font-family: var(--mono); }
 
 .ct-inputs { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--soft); }
 .ct-inputs b { color: var(--text); font-family: var(--mono); }
@@ -423,6 +425,99 @@ input:focus, select:focus {
 }
 .ct-notes { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.55; }
 .ct-notes b { color: var(--soft); }
+
+/* ── casilla de la renta (sección 2): fondo propio para que resalte ── */
+.rentcard {
+  background: linear-gradient(180deg, #fff3c4, #ffe8a3);
+  border: 2px solid var(--accent);
+}
+.rentcard label { color: #7a5200; }
+.rentcard #rent { background: #fffdf3; border: 2px solid var(--accent); font-size: 18px; font-weight: 700; }
+.rentcard #rent:focus { box-shadow: 0 0 0 4px rgba(242,172,44,.35); }
+.rentcard .seg { background: rgba(255,255,255,.65); border-color: var(--accent); }
+.rentcard .coefnote { color: #7a5200; }
+
+/* ── paneles editables de la cuenta (datos de entrada, hipótesis, controles…) ── */
+.ced { margin-top: 12px; background: var(--panel); border: 1px solid var(--line);
+       border-left: 3px solid var(--sec, var(--accent)); border-radius: var(--r); }
+.ced > summary { cursor: pointer; padding: 14px 16px; list-style: none; display: flex; flex-wrap: wrap;
+                 align-items: baseline; gap: 4px 10px; font-size: 14.5px; font-weight: 740; color: var(--text); }
+.ced > summary::-webkit-details-marker { display: none; }
+.ced > summary::before { content: "▸"; color: var(--sec-ink, var(--accent-ink)); font-size: 13px; transition: transform .15s ease; flex: 0 0 auto; }
+.ced[open] > summary::before { transform: rotate(90deg); }
+.ced > summary small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.ced > summary:hover { color: var(--sec-ink, var(--accent-ink)); }
+.cedbody { padding: 0 16px 16px; border-top: 1px solid var(--line2); }
+.ced-intro { font-size: 12.5px; color: var(--soft); line-height: 1.5; margin: 12px 0 8px; }
+.ced-nota { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin: 10px 0 0; }
+.ced-acc { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ced-acc .usebtn { margin-top: 0; }
+.ced-info { font-size: 12px; color: var(--muted); }
+.ced-badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11px; font-weight: 800;
+             background: var(--sec, var(--accent)); color: var(--sec-on, #1a1304); }
+.ced-badge.ok  { background: var(--good); color: #fff; }
+.ced-badge.mal { background: var(--bad);  color: #fff; }
+
+.ced-grid { margin-top: 4px; }
+.ced-row { display: grid; grid-template-columns: minmax(0, 1.9fr) repeat(3, minmax(0, 1fr)); gap: 8px;
+           align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line2); }
+.ced-row:last-child { border-bottom: none; }
+.ced-row .l { min-width: 0; }
+.ced-row .l b { display: block; font-size: 13px; color: var(--text); }
+.ced-row .l .u { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+.ced-row .l .ced-crit { display: block; font-size: 11px; color: var(--muted); line-height: 1.4; margin-top: 3px; }
+.ced-row.hd { position: sticky; top: 0; font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em;
+              font-weight: 800; color: var(--muted); padding: 8px 0; }
+.ced-row.hd .vc { text-align: center; padding: 5px 4px; border-radius: 7px; }
+.ced-row.hd .vc.act { background: var(--sec, var(--accent)); color: var(--sec-on, #1a1304); }
+.ced-sec { margin: 16px 0 2px; padding-top: 12px; border-top: 1px solid var(--line);
+           font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--sec-ink, var(--muted)); }
+.ced-sec:first-child { margin-top: 8px; border-top: none; padding-top: 0; }
+.vc input { padding: 8px 9px; font-family: var(--mono); font-size: 13px; text-align: right; border-radius: 8px; }
+.vc input.chg { border-color: var(--sec, var(--accent)); box-shadow: inset 3px 0 0 var(--sec, var(--accent)); }
+/* Como en el Excel: amarillo = datos de entrada, gris = hipótesis */
+#cedEntradaBody .vc input { background: #fff7b8; border-color: #e0c43a; color: #3b2f00; font-weight: 700; }
+#cedEntradaBody .vc input:focus { box-shadow: 0 0 0 3px rgba(224,196,58,.4); border-color: #c9a800; }
+#cedHipBody .vc input { background: #e4e7ec; border-color: #c4cad3; }
+#cedEntradaBody .vc input.chg, #cedHipBody .vc input.chg { box-shadow: inset 4px 0 0 var(--sec, var(--accent)); border-color: var(--sec, var(--accent)); }
+.vc input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214,69,90,.18); }
+.ced-row.ro .ro-v { display: block; text-align: right; font-family: var(--mono); font-size: 13px; font-weight: 700; padding: 8px 9px; color: var(--text); }
+.ced-row.ro { background: var(--well); margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 8px; border-bottom: none; }
+.ced-row.ro + .ced-row.ro { margin-top: 2px; }
+@media (max-width: 560px) {
+  .ced > summary { padding: 12px 12px; }
+  .cedbody { padding: 0 12px 14px; }
+  .ced-row { grid-template-columns: minmax(0, 1fr) 118px; }
+  .ced-grid .vc:not(.act) { display: none; }
+}
+
+/* tablas anchas (proyección, controles, historial): desplazan por dentro */
+.ct-proy { overflow-x: auto; margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.ct-ptab { border-collapse: collapse; width: 100%; font-size: 12px; }
+.ct-ptab th, .ct-ptab td { padding: 6px 9px; border-bottom: 1px solid var(--line2); white-space: nowrap; text-align: right; }
+.ct-ptab thead th { background: var(--well); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); position: sticky; top: 0; }
+.ct-ptab tbody th { text-align: left; font-weight: 600; color: var(--soft); position: sticky; left: 0; background: var(--panel); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.ct-ptab thead th:first-child { text-align: left; left: 0; z-index: 2; }
+.ct-ptab td { font-family: var(--mono); color: var(--text); }
+.ct-ptab td:last-child, .ct-ptab thead th:last-child { text-align: left; }
+.ct-ptab td.m { font-weight: 700; background: var(--well); }
+.ct-ptab tr.sub th, .ct-ptab tr.sub td { background: var(--well); font-weight: 700; }
+.ct-ptab tr.tot th, .ct-ptab tr.tot td { background: var(--sec-tint, var(--well)); font-weight: 800; }
+.ct-ptab td.neg { color: var(--bad); } .ct-ptab td.pos { color: var(--good); }
+.ct-ptab td { white-space: nowrap; }
+.ced-chip { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; font-family: var(--mono); }
+.ced-chip.ok  { background: rgba(31,157,94,.15);  color: var(--good); }
+.ced-chip.mal { background: var(--bad); color: #fff; }
+
+.ced-guia { font-size: 13px; color: var(--soft); line-height: 1.55; }
+.ced-guia ol, .ced-guia ul { margin: 8px 0 0; padding-left: 20px; }
+.ced-guia li { margin-top: 5px; }
+.ced-guia p { margin: 8px 0 0; }
+.ced-guia b { color: var(--text); }
+
+.ct-warn { margin-top: 14px; padding: 11px 14px; border-radius: 10px; font-size: 12.5px; line-height: 1.5;
+           background: rgba(214,69,90,.08); border: 1px solid var(--bad); color: var(--soft); }
+.ct-warn b { color: var(--bad); }
 
 /* ── criterios del alquiler (desplegable) ── */
 .crit {

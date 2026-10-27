@@ -173,26 +173,60 @@ Tasa de esfuerzo = Renta mensual / Venta media diaria
 
 ### Cuenta de explotación (sección 3)
 
-Fuente: modelo de cuenta de franquicia en xlsx (fichero interno, fuera del repo).
-`scripts/build_cuenta.ps1` lee **solo las hipótesis** (márgenes, merma, personal,
-energía, inversión, renting, préstamo, impuestos, crecimientos) y genera
-`src/cuenta.json` (en `.gitignore`). `app.js` reproduce las fórmulas del Excel
-para recalcular con la **venta** de la sección 3 y la **renta** de la sección 2;
-si alguna falta, usa la del modelo y lo indica.
+Fuente: modelo de cuenta de franquicia en xlsx con **ventas editables** (fichero
+interno, fuera del repo). `scripts/build_cuenta.ps1` lee de él **todo lo editable
+y sus textos** y genera `src/cuenta.json` (en `.gitignore`): los 5 datos de entrada
+de cada tamaño (m², alquiler, equipamiento, obra, ventas), las 30 hipótesis con su
+unidad y su explicación, la guía (cautelas, origen, historial) y los controles.
+`app.js` reproduce las fórmulas del Excel y recalcula con la **venta** de la
+sección 3 y la **renta** de la sección 2; si alguna falta, usa la del modelo.
 
-- Tres tramos del modelo (125 / 150 / 175 m² de sala) que fijan márgenes,
-  personal, energía e inversión.
-- **Gastos de personal: fijos**, los del modelo para el tramo elegido; no se
-  recalculan con la venta. En la proyección suben con el IPC, como en el Excel.
-- Año 1 y **media de los 10 primeros años** (ventas +10 / +7 / +4 % y después
-  IPC; renting 8 años; préstamo de obras con carencia; IS sobre beneficio positivo).
-- **Alquiler máximo del año 1** = renta con la que el resultado antes de
-  impuestos es cero.
-- Verificado contra el propio Excel: las 168 cifras (28 líneas × 2 hojas × 3
-  tramos) coinciden con diferencias de redondeo inferiores a 0,01 €.
+Todo es **editable en pantalla**, y se trabaja con **una sola columna: el tamaño ALTO**
+(175 m² de sala; el modelo conserva también el bajo y el medio). Los datos de entrada
+van en **amarillo** y las hipótesis en **gris**, como en el Excel. La cuenta se ve en
+**dos columnas: el año 1 (hoja «Cuentas Madrid» del Excel) y la media de los 10
+primeros años** (el detalle año a año está en su desplegable), y las tarjetas de beneficio dicen
+cuánto cambia el resultado respecto a los datos originales del modelo:
 
-La tasa de esfuerzo se movió a esta sección, junto a la cifra de ventas.
+- **Datos de entrada** y **Hipótesis**: se cambia cualquier cifra y la cuenta se
+  recalcula al momento. Los cambios se guardan en el dispositivo (`localStorage`,
+  clave `alq_cuenta_v1`), se marcan con un borde de color, y un botón restaura los
+  valores del modelo. Si el Excel cambia (otra firma de los valores de partida),
+  los cambios guardados se descartan para no mezclar versiones.
+- **Indicadores** que se calculan solos: inversión total, fondos propios, préstamo,
+  inversión por m² y ventas netas por m².
+- **Controles automáticos** (los 7 del Excel, OK / REVISAR) para los tres tamaños;
+  si falla alguno del tamaño elegido, la cuenta avisa.
+- **Proyección año a año** (28 líneas × 10 años + media) y **Guía, origen y cautelas**.
 
+Gasto de personal, con selector en pantalla:
+
+| Modo | Qué hace |
+|---|---|
+| **Fijo del tamaño** (por defecto) | El del modelo para ese tamaño, con la venta del propio tamaño: no cambia con la venta que escribas. |
+| **Sigue a la venta** | Como en el Excel: % de las ventas netas que se estén usando. |
+
+En los dos, de año 2 en adelante solo sube con el IPC, como en el Excel. Con la
+venta del tamaño sin tocar, ambos modos dan lo mismo.
+
+Otras reglas del modelo: ventas +10 / +7 / +4 % los años 2-4 y después IPC (todo
+editable); renting por meses (cuota constante, se acaba al cumplirse el plazo);
+préstamo de obras con carencia de principal; amortización lineal de la obra; IS
+solo sobre resultado positivo. **Alquiler máximo** y **venta mínima** = cifra con
+la que el resultado antes de impuestos es cero (la cuenta es lineal en ambas).
+
+**Verificación contra el Excel** (`scripts/oraculo_cuenta.ps1`): abre el modelo en
+solo lectura, le cambia datos e hipótesis en memoria (tres escenarios: base, datos
+muy modificados y casos límite: obra a 0, sin préstamo, renting de más de 10 años,
+préstamo que se acaba antes del año 10…), deja que Excel recalcule y vuelca lo que
+calcula. La app ejecuta su motor con los mismos parámetros: las **3.024 cifras**
+(28 líneas × Año 1, media y 10 años × 3 tamaños × 3 escenarios) coinciden con
+diferencias inferiores a 0,000001 €. La prueba detecta los errores que se le
+inyectan (IPC, plazo del renting, tipo del préstamo, carencia, amortización,
+crecimientos, ajuste de personal). Hay que repetirla si se toca el motor.
+
+La tasa de esfuerzo está en esta sección, junto a la cifra de ventas, como dato
+informativo.
 ### Alquileres reales pagados (tiendas Express)
 
 Fuente: `Datos economicos tiendas Express.xlsx`, extracto contable de **septiembre de 2016**.
